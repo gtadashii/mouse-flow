@@ -2,6 +2,120 @@
 
 Per-application mouse actions for Wayland compositors.
 
+## Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/gtadashii/mouse-flow.git
+   cd mouse-flow
+   ```
+
+2. Install dependencies:
+   ```bash
+   uv sync --extra dev
+   ```
+
+3. Install pre-commit hooks (for development):
+   ```bash
+   .venv/bin/pre-commit install
+   ```
+
+## Usage
+
+Run MouseFlow:
+
+```bash
+uv run mouseflow
+```
+
+If a supported mouse is detected, you'll see:
+
+```
+Found device:
+
+Logitech MX Master 3S
+```
+
+If no supported device is found:
+
+```
+No supported mouse found.
+```
+
+### Supported Devices
+
+MouseFlow automatically detects mice with:
+- Left and right buttons
+- At least one side button (BTN_SIDE or BTN_EXTRA)
+- Relative X/Y axes
+
+Compatible devices include:
+- Logitech MX Master series (3, 3S, etc.)
+- Other mice with side buttons
+
+### Troubleshooting
+
+#### "No supported mouse found" but you have a compatible mouse
+
+This is usually a **permission issue**. MouseFlow needs access to `/dev/input` devices.
+
+**Check available devices:**
+
+```bash
+ls -la /dev/input/event*
+```
+
+If you see `crw-rw----` with group `input`, you need to add your user to that group.
+
+**Fix permissions:**
+
+1. Add your user to the `input` group:
+   ```bash
+   sudo usermod -aG input $USER
+   ```
+
+2. **Log out and log back in** (or restart your system) for the group change to take effect.
+
+3. Verify you're in the group:
+   ```bash
+   groups
+   ```
+   You should see `input` in the list.
+
+**Test without logging out:**
+
+If you want to test immediately without logging out, run with sudo:
+
+```bash
+sudo .venv/bin/python -m mouseflow
+```
+
+Or use the full path to `uv`:
+
+```bash
+sudo $HOME/.local/bin/uv run mouseflow
+```
+
+Note: `sudo uv run mouseflow` won't work because `uv` is in your user's PATH, not root's.
+
+**List all input devices:**
+
+To see what devices are available:
+
+```bash
+.venv/bin/python -c "from evdev import list_devices, InputDevice; [print(f'{d.path}: {d.name}') for d in [InputDevice(p) for p in list_devices()]]"
+```
+
+**Check device capabilities:**
+
+To see if your mouse has the required buttons:
+
+```bash
+.venv/bin/python -c "from evdev import InputDevice; d = InputDevice('/dev/input/eventX'); print(d.capabilities(verbose=True))"
+```
+
+Replace `eventX` with your device path (e.g., `event0`, `event1`).
+
 ## Development
 
 ### Setup

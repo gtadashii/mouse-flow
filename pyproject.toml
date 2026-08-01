@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "Per-application mouse actions for Wayland compositors"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = ["evdev>=1.7.0"]
+
+[project.scripts]
+mouseflow = "mouseflow.__main__:main"
 
 [project.optional-dependencies]
 dev = [
