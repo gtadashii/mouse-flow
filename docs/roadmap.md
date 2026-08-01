@@ -1,0 +1,333 @@
+# MouseFlow Roadmap
+
+## Vision
+
+MouseFlow is an open-source Linux application that enables per-application mouse actions on Wayland compositors.
+
+The project is intentionally developed in small, incremental iterations. Each sprint delivers a working piece of software while introducing new concepts of modern Python and clean architecture.
+
+The roadmap represents the expected evolution of the project but may change as new learnings emerge.
+
+---
+
+# Development Strategy
+
+Each sprint should satisfy the following principles:
+
+- Deliver one meaningful capability.
+- Keep changes small and testable.
+- Avoid unnecessary abstractions.
+- Build on top of previous iterations.
+- Leave the project in a releasable state.
+
+Development follows Specification Driven Development (SDD):
+
+PRD → Specification → Implementation → Tests → Review
+
+---
+
+# Roadmap
+
+## Phase 0 — Bootstrap
+
+### Goal
+
+Create a modern Python project that can be executed locally.
+
+### Deliverable
+
+```bash
+uv run mouseflow
+```
+
+Output:
+
+```text
+MouseFlow started.
+```
+
+---
+
+## Phase 0.5 — Quality Foundation
+
+### Goal
+
+Establish the engineering standards for the project.
+
+### Deliverables
+
+- formatter
+- linter
+- type checking
+- unit testing
+- pre-commit hooks
+- GitHub Actions
+
+---
+
+## Phase 1 — Device Discovery
+
+### Goal
+
+Automatically locate the supported mouse device.
+
+### Deliverable
+
+```text
+Found device:
+
+Logitech MX Master 3S
+```
+
+---
+
+## Phase 2 — Input Engine
+
+### Goal
+
+Receive raw mouse events continuously.
+
+### Deliverable
+
+```text
+BTN_SIDE
+
+BTN_EXTRA
+
+REL_HWHEEL
+```
+
+---
+
+## Phase 3 — Window Resolver
+
+### Goal
+
+Identify the currently focused application.
+
+### Deliverable
+
+```text
+Application
+
+Firefox
+
+Title
+
+ChatGPT
+```
+
+---
+
+## Phase 4 — Domain Model
+
+### Goal
+
+Define the core domain objects used throughout the application.
+
+Examples:
+
+- MouseEvent
+- Application
+- Action
+- Gesture
+- Profile
+
+---
+
+## Phase 5 — Event Dispatcher
+
+### Goal
+
+Associate input events with the active application.
+
+### Deliverable
+
+```text
+Firefox
+
+BTN_SIDE
+
+↓
+
+No action found.
+```
+
+---
+
+## Phase 6 — Configuration Loader
+
+### Goal
+
+Load user-defined mappings from configuration files.
+
+### Deliverable
+
+```yaml
+firefox:
+
+  BTN_SIDE:
+
+    keyboard: alt+left
+```
+
+---
+
+## Phase 7 — Action Runner
+
+### Goal
+
+Execute configured actions.
+
+Examples:
+
+- keyboard shortcuts
+- shell commands
+- applications
+
+---
+
+## Phase 8 — Per-Application Profiles
+
+### Goal
+
+Allow different mappings depending on the focused application.
+
+Example:
+
+Firefox
+
+BTN_SIDE
+
+↓
+
+Alt+Left
+
+VS Code
+
+BTN_SIDE
+
+↓
+
+Ctrl+-
+
+---
+
+## Phase 9 — Mouse Gestures
+
+### Goal
+
+Recognize gesture movements while holding a mouse button.
+
+Examples:
+
+- Workspace switching
+- Window management
+- Custom shortcuts
+
+---
+
+## Phase 10 — Thumb Wheel
+
+### Goal
+
+Support continuous horizontal wheel actions.
+
+Examples:
+
+- Browser tabs
+- VS Code tabs
+- Timeline navigation
+
+---
+
+## Phase 11 — Daemon Mode
+
+### Goal
+
+Run MouseFlow as a background service.
+
+Example:
+
+```bash
+systemctl --user enable mouseflow
+```
+
+---
+
+## Phase 12 — Command Line Interface
+
+### Goal
+
+Provide tools for diagnostics and maintenance.
+
+Examples:
+
+```bash
+mouseflow doctor
+
+mouseflow reload
+
+mouseflow devices
+
+mouseflow inspect
+```
+
+---
+
+## Phase 13 — Release 1.0
+
+### Goal
+
+Publish the first stable release.
+
+Possible distribution channels:
+
+- PyPI
+- AUR
+- Source installation
+
+---
+
+## Phase 14 — Plugin API
+
+### Goal
+
+Allow third-party extensions.
+
+Example:
+
+plugins/
+
+spotify.py
+
+obsidian.py
+
+---
+
+# Guiding Principles
+
+The project values:
+
+- readability over cleverness
+- composition over inheritance
+- explicit code over magic
+- standard library when possible
+- testability
+- small pull requests
+- long-term maintainability
+
+---
+
+# Definition of Done
+
+A sprint is considered complete when:
+
+- all acceptance criteria are satisfied
+- tests pass
+- lint passes
+- type checking passes
+- CI passes
+- documentation is updated
+
+Only then should the next sprint begin.
