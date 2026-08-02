@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from mouseflow.domain import ActionType, Configuration
+from mouseflow.domain import GLOBAL_PROFILE_NAME, ActionType, Configuration
 from mouseflow.parser import (
     ConfigurationError,
     ValidationError,
@@ -217,3 +217,116 @@ class TestTranslateConfig:
         assert len(config.profiles) == 2
         assert config.profiles[0].app_name == "firefox"
         assert config.profiles[1].app_name == "vscode"
+
+
+class TestGlobalProfileParsing:
+    def test_parse_global_profile(self, tmp_path: Path) -> None:
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            "global:\n"
+            "  BTN_SIDE:\n"
+            "    type: keyboard\n"
+            "    payload: alt+left\n"
+            "profiles:\n"
+            "  - app_name: firefox\n"
+            "    mappings:\n"
+            "      BTN_EXTRA:\n"
+            "        type: keyboard\n"
+            "        payload: alt+right\n",
+        )
+
+        config = parse_config(config_file)
+
+        global_profile = config.get_global_profile()
+        assert global_profile is not None
+        assert global_profile.app_name == GLOBAL_PROFILE_NAME
+        assert "BTN_SIDE" in global_profile.mappings
+
+    def test_parse_global_profile_only(self, tmp_path: Path) -> None:
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            "global:\n  BTN_SIDE:\n    type: keyboard\n    payload: alt+left\n",
+        )
+
+        config = parse_config(config_file)
+
+        assert len(config.profiles) == 1
+        assert config.profiles[0].app_name == GLOBAL_PROFILE_NAME
+
+    def test_parse_backward_compatibility_no_global(self, tmp_path: Path) -> None:
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            "profiles:\n"
+            "  - app_name: firefox\n"
+            "    mappings:\n"
+            "      BTN_SIDE:\n"
+            "        type: keyboard\n"
+            "        payload: alt+left\n",
+        )
+
+        config = parse_config(config_file)
+
+        assert len(config.profiles) == 1
+        assert config.profiles[0].app_name == "firefox"
+        assert config.get_global_profile() is None
+
+    def test_validate_global_profile_name_collision(self, tmp_path: Path) -> None:
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            "profiles:\n"
+            "  - app_name: global\n"
+            "    mappings:\n"
+            "      BTN_SIDE:\n"
+            "        type: keyboard\n"
+            "        payload: alt+left\n",
+        )
+
+        with pytest.raises(ValidationError, match="reserved name"):
+            parse_config(config_file)
+
+    def test_parse_global_profile_with_command(self, tmp_path: Path) -> None:
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            "global:\n"
+            "  BTN_EXTRA:\n"
+            "    type: command\n"
+            "    payload: swaymsg workspace next\n",
+        )
+
+        config = parse_config(config_file)
+
+        global_profile = config.get_global_profile()
+        assert global_profile is not None
+        action = global_profile.mappings["BTN_EXTRA"]
+        assert action.action_type == ActionType.COMMAND
+        assert action.payload == "swaymsg workspace next"
+
+    def test_parse_global_and_application_profiles(self, tmp_path: Path) -> None:
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            "global:\n"
+            "  BTN_SIDE:\n"
+            "    type: keyboard\n"
+            "    payload: alt+left\n"
+            "profiles:\n"
+            "  - app_name: firefox\n"
+            "    mappings:\n"
+            "      BTN_SIDE:\n"
+            "        type: keyboard\n"
+            "        payload: ctrl+left\n"
+            "  - app_name: vscode\n"
+            "    mappings:\n"
+            "      BTN_EXTRA:\n"
+            "        type: keyboard\n"
+            "        payload: ctrl+shift+p\n",
+        )
+
+        config = parse_config(config_file)
+
+        assert len(config.profiles) == 3
+        global_profile = config.get_global_profile()
+        assert global_profile is not None
+        firefox_profile = config.get_profile("firefox")
+        assert firefox_profile is not None
+        vscode_profile = config.get_profile("vscode")
+        assert vscode_profile is not None

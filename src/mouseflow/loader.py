@@ -2,21 +2,17 @@ from __future__ import annotations
 
 from mouseflow.domain import (
     Action,
-    Configuration,
     DispatchContext,
     EventType,
     MouseEvent,
+    Profile,
 )
 
 
 def resolve_action(
     context: DispatchContext,
-    config: Configuration,
+    profile: Profile | None,
 ) -> Action | None:
-    if context.window_info is None:
-        return None
-
-    profile = config.get_profile(context.window_info.application.app_name)
     if profile is None:
         return None
 

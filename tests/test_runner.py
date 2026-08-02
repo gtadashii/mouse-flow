@@ -253,6 +253,8 @@ class TestGracefulFailureHandling:
 class TestPipelineIntegration:
     def test_full_pipeline_with_keyboard_action(self) -> None:
         from mouseflow.domain import (
+            Action,
+            ActionType,
             Application,
             Configuration,
             DispatchContext,
@@ -263,6 +265,7 @@ class TestPipelineIntegration:
             WindowInfo,
         )
         from mouseflow.loader import resolve_action
+        from mouseflow.profile_resolver import ProfileResolver
 
         config = Configuration(
             profiles=(
@@ -285,7 +288,9 @@ class TestPipelineIntegration:
         )
         context = DispatchContext(event=event, window_info=window_info)
 
-        action = resolve_action(context, config)
+        resolver = ProfileResolver()
+        profile = resolver.resolve(config, window_info)
+        action = resolve_action(context, profile)
         assert action is not None
 
         mock_keyboard = _mock_keyboard()
@@ -311,6 +316,7 @@ class TestPipelineIntegration:
             command_action,
         )
         from mouseflow.loader import resolve_action
+        from mouseflow.profile_resolver import ProfileResolver
 
         config = Configuration(
             profiles=(
@@ -330,7 +336,9 @@ class TestPipelineIntegration:
         )
         context = DispatchContext(event=event, window_info=window_info)
 
-        action = resolve_action(context, config)
+        resolver = ProfileResolver()
+        profile = resolver.resolve(config, window_info)
+        action = resolve_action(context, profile)
         assert action is not None
 
         shell_adapter = ShellAdapter()
@@ -357,6 +365,7 @@ class TestPipelineIntegration:
             command_action,
         )
         from mouseflow.loader import resolve_action
+        from mouseflow.profile_resolver import ProfileResolver
 
         config = Configuration(
             profiles=(
@@ -376,7 +385,9 @@ class TestPipelineIntegration:
         )
         context = DispatchContext(event=event, window_info=window_info)
 
-        action = resolve_action(context, config)
+        resolver = ProfileResolver()
+        profile = resolver.resolve(config, window_info)
+        action = resolve_action(context, profile)
         assert action is not None
 
         shell_adapter = ShellAdapter()
@@ -392,6 +403,8 @@ class TestPipelineIntegration:
 
     def test_pipeline_with_mixed_action_types(self) -> None:
         from mouseflow.domain import (
+            Action,
+            ActionType,
             Application,
             Configuration,
             DispatchContext,
@@ -403,6 +416,7 @@ class TestPipelineIntegration:
             command_action,
         )
         from mouseflow.loader import resolve_action
+        from mouseflow.profile_resolver import ProfileResolver
 
         config = Configuration(
             profiles=(
@@ -435,7 +449,9 @@ class TestPipelineIntegration:
         )
         context1 = DispatchContext(event=event1, window_info=window_info)
 
-        action1 = resolve_action(context1, config)
+        resolver = ProfileResolver()
+        profile = resolver.resolve(config, window_info)
+        action1 = resolve_action(context1, profile)
         assert action1 is not None
 
         result1 = runner.run(action1)
@@ -444,7 +460,7 @@ class TestPipelineIntegration:
         event2 = MouseEvent.button_event(MouseButton.BTN_EXTRA)
         context2 = DispatchContext(event=event2, window_info=window_info)
 
-        action2 = resolve_action(context2, config)
+        action2 = resolve_action(context2, profile)
         assert action2 is not None
 
         with patch("subprocess.run") as mock_run:
@@ -465,6 +481,7 @@ class TestPipelineIntegration:
             command_action,
         )
         from mouseflow.loader import resolve_action
+        from mouseflow.profile_resolver import ProfileResolver
 
         config = Configuration(
             profiles=(
@@ -484,7 +501,9 @@ class TestPipelineIntegration:
         )
         context = DispatchContext(event=event, window_info=window_info)
 
-        action = resolve_action(context, config)
+        resolver = ProfileResolver()
+        profile = resolver.resolve(config, window_info)
+        action = resolve_action(context, profile)
         assert action is not None
 
         shell_adapter = ShellAdapter()
@@ -502,7 +521,7 @@ class TestPipelineIntegration:
             assert result.status == ExecutionStatus.FAILURE
             assert result.error_message is not None
 
-        action2 = resolve_action(context, config)
+        action2 = resolve_action(context, profile)
         assert action2 is not None
 
         with patch("subprocess.run") as mock_run:

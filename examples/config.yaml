@@ -1,3 +1,11 @@
+global:
+  BTN_SIDE:
+    type: keyboard
+    payload: alt+left
+  BTN_EXTRA:
+    type: keyboard
+    payload: alt+right
+
 profiles:
   - app_name: firefox
     mappings:

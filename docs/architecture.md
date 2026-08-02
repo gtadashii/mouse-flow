@@ -48,7 +48,13 @@ This architecture ensures:
           │ DispatchContext
           ▼
 ┌─────────────────┐
-│ Configuration   │ ← Resolves action from Configuration
+│    Profile      │ ← Selects appropriate profile
+│   Resolver      │   (application-specific or global)
+└────────┬────────┘
+          │ Profile | None
+          ▼
+┌─────────────────┐
+│ Configuration   │ ← Resolves action from selected Profile
 │    Loader       │
 └────────┬────────┘
           │ Action
@@ -260,27 +266,57 @@ The Configuration Parser is the only component that knows about the YAML format.
 
 ### Configuration Loader
 
-**Responsibility:** Resolve which action, if any, matches a dispatched event context.
+**Responsibility:** Resolve which action, if any, matches a dispatched event context using a selected profile.
 
 **Input:**
 - `DispatchContext` from Event Dispatcher
-- `Configuration` from startup
+- `Profile | None` from Profile Resolver
 
 **Output:** `Action | None` - the resolved action, or None if no match
 
 **Key behaviors:**
-- Receives DispatchContext containing event and window information
-- Looks up the Profile for the active application
-- Finds the mapping for the specific event
+- Receives DispatchContext containing event information
+- Receives selected Profile from Profile Resolver
+- Finds the mapping for the specific event in the profile
 - Returns the corresponding Action, or None if no match
 
 **Not responsible for:**
 - Parsing configuration files
 - Event processing
+- Profile selection
 - Action execution
 - Hardware interaction
 
 **Implementation:** `src/mouseflow/loader.py`
+
+---
+
+### Profile Resolver
+
+**Responsibility:** Select the appropriate profile (application-specific or global) based on the focused application.
+
+**Input:**
+- `Configuration` from startup
+- `WindowInfo | None` from Event Dispatcher
+
+**Output:** `Profile | None` - the selected profile, or None if no profile available
+
+**Key behaviors:**
+- Receives Configuration containing all profiles
+- Receives WindowInfo containing the active application
+- Looks up the application-specific profile first
+- Falls back to global profile if no application-specific profile exists
+- Returns None if neither profile is available
+- Applies deterministic precedence rules (application-specific always wins)
+
+**Not responsible for:**
+- Parsing configuration files
+- Event processing
+- Action resolution
+- Action execution
+- Hardware interaction
+
+**Implementation:** `src/mouseflow/profile_resolver.py`
 
 ---
 

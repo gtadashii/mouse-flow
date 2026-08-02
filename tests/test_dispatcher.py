@@ -4,11 +4,13 @@ from collections.abc import Iterable
 
 from mouseflow.dispatcher import EventDispatcher, format_dispatch_context
 from mouseflow.domain import (
+    GLOBAL_PROFILE_NAME,
     Application,
     DispatchContext,
     EventType,
     MouseButton,
     MouseEvent,
+    Profile,
     WheelAxis,
     Window,
     WindowInfo,
@@ -163,3 +165,45 @@ class TestFormatDispatchContext:
         result = format_dispatch_context(context)
 
         assert result == "Application: Unknown\nTitle: Unknown\nEvent: Unknown"
+
+    def test_format_with_application_profile(self) -> None:
+        """Test formatting with application-specific profile."""
+        app = Application(app_name="Firefox")
+        window = Window(title="ChatGPT")
+        window_info = WindowInfo(application=app, window=window)
+        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        context = DispatchContext(event=event, window_info=window_info)
+        profile = Profile(app_name="firefox", mappings={})
+
+        result = format_dispatch_context(context, profile)
+
+        assert "Application: Firefox" in result
+        assert "Title: ChatGPT" in result
+        assert "Event: BTN_SIDE" in result
+        assert "Profile: firefox" in result
+
+    def test_format_with_global_profile(self) -> None:
+        """Test formatting with global profile."""
+        app = Application(app_name="Chrome")
+        window = Window(title="Test")
+        window_info = WindowInfo(application=app, window=window)
+        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        context = DispatchContext(event=event, window_info=window_info)
+        profile = Profile(app_name=GLOBAL_PROFILE_NAME, mappings={})
+
+        result = format_dispatch_context(context, profile)
+
+        assert "Application: Chrome" in result
+        assert "Profile: global" in result
+
+    def test_format_without_profile(self) -> None:
+        """Test formatting without profile (backward compatibility)."""
+        app = Application(app_name="Firefox")
+        window = Window(title="ChatGPT")
+        window_info = WindowInfo(application=app, window=window)
+        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        context = DispatchContext(event=event, window_info=window_info)
+
+        result = format_dispatch_context(context)
+
+        assert "Profile:" not in result

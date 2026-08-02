@@ -1,9 +1,11 @@
 import pytest
 
 from mouseflow.domain import (
+    GLOBAL_PROFILE_NAME,
     Action,
     ActionType,
     Application,
+    Configuration,
     DispatchContext,
     EventType,
     MouseButton,
@@ -270,3 +272,49 @@ class TestDispatchContext:
         context = DispatchContext(event=event)
         with pytest.raises(AttributeError):
             context.event = MouseEvent.button_event(MouseButton.BTN_EXTRA)  # type: ignore[misc]
+
+
+class TestGlobalProfileName:
+    def test_global_profile_name_value(self) -> None:
+        assert GLOBAL_PROFILE_NAME == "global"
+
+
+class TestConfiguration:
+    def test_get_profile_existing(self) -> None:
+        profile = Profile(app_name="firefox", mappings={})
+        config = Configuration(profiles=(profile,))
+        assert config.get_profile("firefox") == profile
+
+    def test_get_profile_nonexistent(self) -> None:
+        profile = Profile(app_name="firefox", mappings={})
+        config = Configuration(profiles=(profile,))
+        assert config.get_profile("chrome") is None
+
+    def test_get_profile_empty_configuration(self) -> None:
+        config = Configuration()
+        assert config.get_profile("firefox") is None
+
+    def test_get_global_profile_exists(self) -> None:
+        global_profile = Profile(app_name=GLOBAL_PROFILE_NAME, mappings={})
+        config = Configuration(profiles=(global_profile,))
+        assert config.get_global_profile() == global_profile
+
+    def test_get_global_profile_not_exists(self) -> None:
+        profile = Profile(app_name="firefox", mappings={})
+        config = Configuration(profiles=(profile,))
+        assert config.get_global_profile() is None
+
+    def test_get_global_profile_empty_configuration(self) -> None:
+        config = Configuration()
+        assert config.get_global_profile() is None
+
+    def test_get_global_profile_with_multiple_profiles(self) -> None:
+        firefox_profile = Profile(app_name="firefox", mappings={})
+        global_profile = Profile(app_name=GLOBAL_PROFILE_NAME, mappings={})
+        vscode_profile = Profile(app_name="vscode", mappings={})
+        config = Configuration(
+            profiles=(firefox_profile, global_profile, vscode_profile),
+        )
+        assert config.get_global_profile() == global_profile
+        assert config.get_profile("firefox") == firefox_profile
+        assert config.get_profile("vscode") == vscode_profile

@@ -6,7 +6,6 @@ from mouseflow.domain import (
     Action,
     ActionType,
     Application,
-    Configuration,
     DispatchContext,
     MouseButton,
     MouseEvent,
@@ -16,134 +15,72 @@ from mouseflow.domain import (
     WindowInfo,
 )
 from mouseflow.loader import resolve_action
+from mouseflow.profile_resolver import ProfileResolver
 
 
 class TestResolveAction:
     def test_resolve_matching_rule_exists(self) -> None:
         """Test resolving action when matching rule exists."""
-        config = Configuration(
-            profiles=(
-                Profile(
-                    app_name="firefox",
-                    mappings={
-                        "BTN_SIDE": Action(
-                            action_type=ActionType.KEYBOARD,
-                            payload="alt+left",
-                        ),
-                    },
+        profile = Profile(
+            app_name="firefox",
+            mappings={
+                "BTN_SIDE": Action(
+                    action_type=ActionType.KEYBOARD,
+                    payload="alt+left",
                 ),
-            ),
+            },
         )
         event = MouseEvent.button_event(MouseButton.BTN_SIDE)
-        window_info = WindowInfo(
-            application=Application(app_name="firefox"),
-            window=Window(title="Test"),
-        )
-        context = DispatchContext(event=event, window_info=window_info)
+        context = DispatchContext(event=event)
 
-        action = resolve_action(context, config)
+        action = resolve_action(context, profile)
 
         assert action is not None
         assert action.action_type == ActionType.KEYBOARD
         assert action.payload == "alt+left"
 
-    def test_resolve_no_profile_for_application(self) -> None:
-        """Test resolving when no profile exists for application."""
-        config = Configuration(
-            profiles=(
-                Profile(
-                    app_name="firefox",
-                    mappings={
-                        "BTN_SIDE": Action(
-                            action_type=ActionType.KEYBOARD,
-                            payload="alt+left",
-                        ),
-                    },
-                ),
-            ),
-        )
-        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
-        window_info = WindowInfo(
-            application=Application(app_name="chrome"),
-            window=Window(title="Test"),
-        )
-        context = DispatchContext(event=event, window_info=window_info)
-
-        action = resolve_action(context, config)
-
-        assert action is None
-
     def test_resolve_no_mapping_for_event(self) -> None:
         """Test resolving when no mapping exists for event."""
-        config = Configuration(
-            profiles=(
-                Profile(
-                    app_name="firefox",
-                    mappings={
-                        "BTN_SIDE": Action(
-                            action_type=ActionType.KEYBOARD,
-                            payload="alt+left",
-                        ),
-                    },
+        profile = Profile(
+            app_name="firefox",
+            mappings={
+                "BTN_SIDE": Action(
+                    action_type=ActionType.KEYBOARD,
+                    payload="alt+left",
                 ),
-            ),
+            },
         )
         event = MouseEvent.button_event(MouseButton.BTN_EXTRA)
-        window_info = WindowInfo(
-            application=Application(app_name="firefox"),
-            window=Window(title="Test"),
-        )
-        context = DispatchContext(event=event, window_info=window_info)
+        context = DispatchContext(event=event)
 
-        action = resolve_action(context, config)
+        action = resolve_action(context, profile)
 
         assert action is None
 
-    def test_resolve_null_window_info(self) -> None:
-        """Test resolving when WindowInfo is null."""
-        config = Configuration(
-            profiles=(
-                Profile(
-                    app_name="firefox",
-                    mappings={
-                        "BTN_SIDE": Action(
-                            action_type=ActionType.KEYBOARD,
-                            payload="alt+left",
-                        ),
-                    },
-                ),
-            ),
-        )
+    def test_resolve_null_profile(self) -> None:
+        """Test resolving when profile is null."""
         event = MouseEvent.button_event(MouseButton.BTN_SIDE)
-        context = DispatchContext(event=event, window_info=None)
+        context = DispatchContext(event=event)
 
-        action = resolve_action(context, config)
+        action = resolve_action(context, None)
 
         assert action is None
 
     def test_resolve_wheel_event(self) -> None:
         """Test resolving wheel event."""
-        config = Configuration(
-            profiles=(
-                Profile(
-                    app_name="firefox",
-                    mappings={
-                        "REL_HWHEEL": Action(
-                            action_type=ActionType.COMMAND,
-                            payload="swaymsg workspace next",
-                        ),
-                    },
+        profile = Profile(
+            app_name="firefox",
+            mappings={
+                "REL_HWHEEL": Action(
+                    action_type=ActionType.COMMAND,
+                    payload="swaymsg workspace next",
                 ),
-            ),
+            },
         )
         event = MouseEvent.wheel_event(WheelAxis.REL_HWHEEL, 1)
-        window_info = WindowInfo(
-            application=Application(app_name="firefox"),
-            window=Window(title="Test"),
-        )
-        context = DispatchContext(event=event, window_info=window_info)
+        context = DispatchContext(event=event)
 
-        action = resolve_action(context, config)
+        action = resolve_action(context, profile)
 
         assert action is not None
         assert action.action_type == ActionType.COMMAND
@@ -152,7 +89,7 @@ class TestResolveAction:
 
 class TestIntegration:
     def test_full_pipeline_parse_and_resolve(self, tmp_path: Path) -> None:
-        """Test full pipeline: parse config → resolve action."""
+        """Test full pipeline: parse config → resolve profile → resolve action."""
         from mouseflow.parser import parse_config
 
         config_file = tmp_path / "config.yaml"
@@ -169,6 +106,7 @@ class TestIntegration:
         )
 
         config = parse_config(config_file)
+        resolver = ProfileResolver()
 
         event = MouseEvent.button_event(MouseButton.BTN_SIDE)
         window_info = WindowInfo(
@@ -177,7 +115,8 @@ class TestIntegration:
         )
         context = DispatchContext(event=event, window_info=window_info)
 
-        action = resolve_action(context, config)
+        profile = resolver.resolve(config, window_info)
+        action = resolve_action(context, profile)
 
         assert action is not None
         assert action.action_type == ActionType.KEYBOARD
@@ -198,6 +137,7 @@ class TestIntegration:
         )
 
         config = parse_config(config_file)
+        resolver = ProfileResolver()
 
         event = MouseEvent.button_event(MouseButton.BTN_EXTRA)
         window_info = WindowInfo(
@@ -206,6 +146,42 @@ class TestIntegration:
         )
         context = DispatchContext(event=event, window_info=window_info)
 
-        action = resolve_action(context, config)
+        profile = resolver.resolve(config, window_info)
+        action = resolve_action(context, profile)
 
         assert action is None
+
+    def test_full_pipeline_with_global_fallback(self, tmp_path: Path) -> None:
+        """Test full pipeline with global profile fallback."""
+        from mouseflow.parser import parse_config
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            "global:\n"
+            "  BTN_SIDE:\n"
+            "    type: keyboard\n"
+            "    payload: alt+left\n"
+            "profiles:\n"
+            "  - app_name: firefox\n"
+            "    mappings:\n"
+            "      BTN_EXTRA:\n"
+            "        type: keyboard\n"
+            "        payload: alt+right\n",
+        )
+
+        config = parse_config(config_file)
+        resolver = ProfileResolver()
+
+        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        window_info = WindowInfo(
+            application=Application(app_name="chrome"),
+            window=Window(title="Test"),
+        )
+        context = DispatchContext(event=event, window_info=window_info)
+
+        profile = resolver.resolve(config, window_info)
+        action = resolve_action(context, profile)
+
+        assert action is not None
+        assert action.action_type == ActionType.KEYBOARD
+        assert action.payload == "alt+left"

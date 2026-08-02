@@ -5,7 +5,15 @@ from typing import Any
 
 import yaml
 
-from mouseflow.domain import Action, ActionType, Configuration, Profile
+from mouseflow.domain import (
+    GLOBAL_PROFILE_NAME,
+    Action,
+    ActionType,
+    Configuration,
+    Profile,
+)
+
+DEFAULT_CONFIG_PATH = Path.home() / ".config" / "mouseflow" / "config.yaml"
 
 
 class ConfigurationError(Exception):
@@ -16,7 +24,9 @@ class ValidationError(ConfigurationError):
     pass
 
 
-def parse_config(path: Path) -> Configuration:
+def parse_config(path: Path | None = None) -> Configuration:
+    if path is None:
+        path = DEFAULT_CONFIG_PATH
     raw_data = _load_yaml(path)
     _validate_structure(raw_data)
     return _translate_to_domain(raw_data)
@@ -41,47 +51,84 @@ def _load_yaml(path: Path) -> dict[str, Any]:
 
 
 def _validate_structure(data: dict[str, Any]) -> None:
-    if "profiles" not in data:
-        raise ValidationError("Missing required field: profiles")
+    if "profiles" not in data and "global" not in data:
+        raise ValidationError("Missing required field: profiles or global")
 
-    profiles = data["profiles"]
-    if not isinstance(profiles, list):
-        raise ValidationError("profiles must be a list")
+    if "profiles" in data:
+        profiles = data["profiles"]
+        if not isinstance(profiles, list):
+            raise ValidationError("profiles must be a list")
 
-    for i, profile in enumerate(profiles):
-        if not isinstance(profile, dict):
-            raise ValidationError(f"Profile {i} must be a mapping")
+        for i, profile in enumerate(profiles):
+            if not isinstance(profile, dict):
+                raise ValidationError(f"Profile {i} must be a mapping")
 
-        if "app_name" not in profile:
-            raise ValidationError(f"Profile {i} missing required field: app_name")
+            if "app_name" not in profile:
+                raise ValidationError(f"Profile {i} missing required field: app_name")
 
-        if "mappings" not in profile:
-            raise ValidationError(f"Profile {i} missing required field: mappings")
+            app_name = profile["app_name"]
+            if app_name == GLOBAL_PROFILE_NAME:
+                raise ValidationError(
+                    f"Profile {i} cannot use reserved name '{GLOBAL_PROFILE_NAME}'. "
+                    "Use 'global:' key at top level instead.",
+                )
 
-        mappings = profile["mappings"]
-        if not isinstance(mappings, dict):
-            raise ValidationError(f"Profile {i} mappings must be a mapping")
+            if "mappings" not in profile:
+                raise ValidationError(f"Profile {i} missing required field: mappings")
 
-        for event_key, action in mappings.items():
+            mappings = profile["mappings"]
+            if not isinstance(mappings, dict):
+                raise ValidationError(f"Profile {i} mappings must be a mapping")
+
+            for event_key, action in mappings.items():
+                if not isinstance(action, dict):
+                    msg = f"Mapping {event_key} in profile {i} must be a mapping"
+                    raise ValidationError(msg)
+
+                if "type" not in action:
+                    msg = (
+                        f"Mapping {event_key} in profile {i} "
+                        "missing required field: type"
+                    )
+                    raise ValidationError(msg)
+
+                if "payload" not in action:
+                    msg = (
+                        f"Mapping {event_key} in profile {i} "
+                        "missing required field: payload"
+                    )
+                    raise ValidationError(msg)
+
+                action_type = action["type"]
+                if action_type not in ("keyboard", "command"):
+                    msg = (
+                        f"Mapping {event_key} in profile {i} "
+                        f"has invalid action type: {action_type}"
+                    )
+                    raise ValidationError(msg)
+
+    if "global" in data:
+        global_mappings = data["global"]
+        if not isinstance(global_mappings, dict):
+            raise ValidationError("global must be a mapping")
+
+        for event_key, action in global_mappings.items():
             if not isinstance(action, dict):
-                msg = f"Mapping {event_key} in profile {i} must be a mapping"
+                msg = f"Mapping {event_key} in global must be a mapping"
                 raise ValidationError(msg)
 
             if "type" not in action:
-                msg = f"Mapping {event_key} in profile {i} missing required field: type"
+                msg = f"Mapping {event_key} in global missing required field: type"
                 raise ValidationError(msg)
 
             if "payload" not in action:
-                msg = (
-                    f"Mapping {event_key} in profile {i} "
-                    "missing required field: payload"
-                )
+                msg = f"Mapping {event_key} in global missing required field: payload"
                 raise ValidationError(msg)
 
             action_type = action["type"]
             if action_type not in ("keyboard", "command"):
                 msg = (
-                    f"Mapping {event_key} in profile {i} "
+                    f"Mapping {event_key} in global "
                     f"has invalid action type: {action_type}"
                 )
                 raise ValidationError(msg)
@@ -90,23 +137,29 @@ def _validate_structure(data: dict[str, Any]) -> None:
 def _translate_to_domain(data: dict[str, Any]) -> Configuration:
     profiles: list[Profile] = []
 
-    for profile_data in data["profiles"]:
-        mappings: dict[str, Action] = {}
+    if "global" in data:
+        global_mappings = _parse_mappings(data["global"])
+        profiles.append(Profile(app_name=GLOBAL_PROFILE_NAME, mappings=global_mappings))
 
-        for event_key, action_data in profile_data["mappings"].items():
-            action_type_str = action_data["type"]
-            action_type = (
-                ActionType.KEYBOARD
-                if action_type_str == "keyboard"
-                else ActionType.COMMAND
+    if "profiles" in data:
+        for profile_data in data["profiles"]:
+            mappings = _parse_mappings(profile_data["mappings"])
+            profiles.append(
+                Profile(app_name=profile_data["app_name"], mappings=mappings),
             )
-            mappings[event_key] = Action(
-                action_type=action_type,
-                payload=action_data["payload"],
-            )
-
-        profiles.append(
-            Profile(app_name=profile_data["app_name"], mappings=mappings),
-        )
 
     return Configuration(profiles=tuple(profiles))
+
+
+def _parse_mappings(mappings_data: dict[str, Any]) -> dict[str, Action]:
+    mappings: dict[str, Action] = {}
+    for event_key, action_data in mappings_data.items():
+        action_type_str = action_data["type"]
+        action_type = (
+            ActionType.KEYBOARD if action_type_str == "keyboard" else ActionType.COMMAND
+        )
+        mappings[event_key] = Action(
+            action_type=action_type,
+            payload=action_data["payload"],
+        )
+    return mappings

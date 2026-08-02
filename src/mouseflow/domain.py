@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Protocol
 
+GLOBAL_PROFILE_NAME = "global"
+
 
 class ExecutionStatus(Enum):
     SUCCESS = "SUCCESS"
@@ -110,6 +112,9 @@ class Configuration:
             if profile.app_name == app_name:
                 return profile
         return None
+
+    def get_global_profile(self) -> Profile | None:
+        return self.get_profile(GLOBAL_PROFILE_NAME)
 
 
 @dataclass(frozen=True)

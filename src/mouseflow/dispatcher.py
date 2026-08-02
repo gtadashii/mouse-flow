@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Generator, Iterable
 
-from mouseflow.domain import DispatchContext, EventType, MouseEvent
+from mouseflow.domain import DispatchContext, EventType, MouseEvent, Profile
 from mouseflow.resolver import WindowResolver
 
 
@@ -16,7 +16,10 @@ class EventDispatcher:
             yield DispatchContext(event=event, window_info=window_info)
 
 
-def format_dispatch_context(context: DispatchContext) -> str:
+def format_dispatch_context(
+    context: DispatchContext,
+    profile: Profile | None = None,
+) -> str:
     event = context.event
     event_str = "Unknown"
 
@@ -31,4 +34,14 @@ def format_dispatch_context(context: DispatchContext) -> str:
     app_name = context.window_info.application.app_name
     title = context.window_info.window.title
 
-    return f"Application: {app_name}\nTitle: {title}\nEvent: {event_str}"
+    lines = [f"Application: {app_name}", f"Title: {title}", f"Event: {event_str}"]
+
+    if profile is not None:
+        from mouseflow.domain import GLOBAL_PROFILE_NAME
+
+        if profile.app_name == GLOBAL_PROFILE_NAME:
+            lines.append("Profile: global")
+        else:
+            lines.append(f"Profile: {profile.app_name}")
+
+    return "\n".join(lines)
