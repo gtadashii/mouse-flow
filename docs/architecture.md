@@ -48,9 +48,10 @@ This architecture ensures:
          │ DispatchContext
          ▼
 ┌─────────────────┐
-│  Config Loader  │ ← Loads user mappings (future)
+│ Configuration   │ ← Resolves action from Configuration
+│    Loader       │
 └────────┬────────┘
-         │ Profile + Action
+         │ Action | None
          ▼
 ┌─────────────────┐
 │  Action Runner  │ ← Executes actions (future)
@@ -58,6 +59,30 @@ This architecture ensures:
 ```
 
 Each arrow represents a domain object being passed from one component to the next. Infrastructure details (evdev, i3ipc, file I/O) are confined to the edges and never leak into the domain.
+
+### Configuration Loading (Startup)
+
+Configuration is loaded once at startup, before event processing begins:
+
+```
+┌─────────────────┐
+│  config.yaml    │ ← User-defined configuration file
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Configuration   │ ← Parses YAML, validates, translates to domain
+│    Parser       │
+└────────┬────────┘
+         │ Configuration
+         ▼
+┌─────────────────┐
+│   Application   │ ← Uses Configuration for action resolution
+│     Runtime     │
+└─────────────────┘
+```
+
+The Configuration Parser is the only component that knows about the YAML format. After startup, the entire application operates on domain objects exclusively.
 
 ---
 
@@ -177,6 +202,7 @@ Each arrow represents a domain object being passed from one component to the nex
 - `DispatchContext` - combines MouseEvent + WindowInfo
 - `Action` - executable action (keyboard shortcut or command)
 - `Profile` - application-specific action mappings
+- `Configuration` - collection of profiles loaded at startup
 
 **Key behaviors:**
 - All objects are frozen dataclasses (immutable)
@@ -188,32 +214,59 @@ Each arrow represents a domain object being passed from one component to the nex
 - Reading hardware events
 - Communicating with compositor
 - Executing actions
-- Loading configuration
+- Parsing configuration files
 
 **Implementation:** `src/mouseflow/domain.py`
 
 ---
 
-### Configuration Loader (Future)
+### Configuration Parser
 
-**Responsibility:** Load user-defined action mappings from YAML files.
+**Responsibility:** Parse configuration files and translate them into domain objects.
 
-**Input:** Configuration file path
+**Input:** Configuration file path (e.g., `~/.config/mouseflow/config.yaml`)
 
-**Output:** `Profile` objects with action mappings
+**Output:** `Configuration` domain object containing `Profile` objects with action mappings
 
 **Key behaviors:**
-- Reads YAML configuration
-- Validates structure
-- Converts to domain objects (Profile, Action)
-- Handles missing/invalid files gracefully
+- Reads YAML configuration file
+- Validates structure and required fields
+- Translates external format into domain objects (Configuration, Profile, Action)
+- Reports clear validation errors for invalid configuration
 
 **Not responsible for:**
+- Action resolution
+- Event processing
+- Action execution
+- Runtime configuration changes
+
+**Implementation:** `src/mouseflow/parser.py`
+
+---
+
+### Configuration Loader
+
+**Responsibility:** Resolve which action, if any, matches a dispatched event context.
+
+**Input:**
+- `DispatchContext` from Event Dispatcher
+- `Configuration` from startup
+
+**Output:** `Action | None` - the resolved action, or None if no match
+
+**Key behaviors:**
+- Receives DispatchContext containing event and window information
+- Looks up the Profile for the active application
+- Finds the mapping for the specific event
+- Returns the corresponding Action, or None if no match
+
+**Not responsible for:**
+- Parsing configuration files
 - Event processing
 - Action execution
 - Hardware interaction
 
-**Implementation:** Not yet implemented (Sprint 6)
+**Implementation:** `src/mouseflow/loader.py`
 
 ---
 
@@ -280,6 +333,10 @@ class Action:
 class Profile:
     app_name: str
     mappings: dict[str, Action]  # "BTN_SIDE" -> Action
+
+@dataclass(frozen=True)
+class Configuration:
+    profiles: tuple[Profile, ...]  # Immutable collection of profiles
 ```
 
 ### Design Principles
@@ -293,16 +350,37 @@ class Profile:
 
 ## Data Flow Example
 
+### Startup Phase
+
+1. **Configuration Parser** reads `~/.config/mouseflow/config.yaml`
+2. **Configuration Parser** validates structure and required fields
+3. **Configuration Parser** translates YAML into `Configuration` domain object
+4. Application stores `Configuration` for use during event processing
+
+### Event Processing Phase
+
 When the user presses BTN_SIDE in Firefox:
 
 1. **Input Engine** reads evdev event → converts to `MouseEvent(button=BTN_SIDE, value=1)`
 2. **Event Dispatcher** receives MouseEvent
 3. **Event Dispatcher** calls `resolver.resolve()` → gets `WindowInfo(app="firefox", title="ChatGPT")`
 4. **Event Dispatcher** yields `DispatchContext(event=..., window_info=...)`
-5. **Config Loader** (future) looks up Profile for "firefox" → finds mapping for BTN_SIDE
+5. **Configuration Loader** looks up Profile for "firefox" in Configuration → finds mapping for BTN_SIDE
 6. **Action Runner** (future) executes `Action(type=KEYBOARD, payload="alt+left")`
 
 Each step receives domain objects and produces domain objects. Infrastructure is confined to the edges.
+
+### Key Insight: Format Isolation
+
+The YAML format is only known to the Configuration Parser. After startup:
+- The Configuration Loader works with `Configuration` domain objects
+- The Event Dispatcher works with `DispatchContext` domain objects
+- The Action Runner will work with `Action` domain objects
+
+No component except the Parser depends on the configuration file format. This enables:
+- Alternative configuration formats (TOML, JSON) without changing the Loader
+- Runtime configuration reload by replacing the Configuration object
+- Multiple configuration sources (files, APIs, plugins)
 
 ---
 
@@ -325,7 +403,8 @@ Each component has one job:
 - Input Engine: convert events
 - Window Resolver: resolve windows
 - Event Dispatcher: combine context
-- Config Loader: load mappings
+- Configuration Parser: parse configuration files into domain objects
+- Configuration Loader: resolve actions from configuration
 - Action Runner: execute actions
 
 ### 4. Domain Purity
@@ -350,13 +429,17 @@ mouseflow/
 ├── discovery.py       # Depends on: evdev
 ├── engine.py          # Depends on: evdev, domain
 ├── resolver.py        # Depends on: i3ipc, domain
-└── dispatcher.py      # Depends on: domain, resolver (protocol)
+├── dispatcher.py      # Depends on: domain, resolver (protocol)
+├── parser.py          # Depends on: yaml, domain
+└── loader.py          # Depends on: domain
 ```
 
 **Key observations:**
 - `domain.py` has no dependencies (pure Python)
-- Infrastructure libraries (evdev, i3ipc) are confined to specific modules
+- Infrastructure libraries (evdev, i3ipc, yaml) are confined to specific modules
 - `dispatcher.py` depends on resolver protocol, not implementation
+- `parser.py` is the only module that knows about YAML
+- `loader.py` depends only on domain objects, not on file formats
 - No circular dependencies
 
 ---
@@ -369,6 +452,8 @@ Each component is tested in isolation:
 - **Input Engine**: Mock evdev, test event conversion
 - **Window Resolver**: Mock i3ipc, test window resolution
 - **Event Dispatcher**: Mock WindowResolver, test context creation
+- **Configuration Parser**: Test YAML parsing, validation, and translation
+- **Configuration Loader**: Test action resolution with mock Configuration
 - **Integration tests**: Test full pipeline with mocked infrastructure
 
 This ensures tests are fast, deterministic, and focused.
@@ -379,10 +464,12 @@ This ensures tests are fast, deterministic, and focused.
 
 The pipeline architecture supports future extensions:
 
-- **Config Loader** (Sprint 6): Add between Dispatcher and Action Runner
 - **Action Runner** (Sprint 7): Add at end of pipeline
+- **Configuration Reload**: Replace Configuration object at runtime
+- **Multiple Configuration Formats**: Add parsers for TOML, JSON without changing Loader
 - **Gesture Recognition**: Add as new stage between Engine and Dispatcher
-- **Multiple Profiles**: Extend Config Loader to merge profiles
+- **Multiple Profiles**: Extend Configuration to merge profiles from multiple sources
 - **Plugin System**: Add plugin stage before Action Runner
+- **Remote Configuration**: Add API-based configuration source alongside file-based
 
 Each extension is a new pipeline stage or enhancement to existing stage, without disrupting the overall architecture.

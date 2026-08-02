@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 
@@ -89,7 +89,18 @@ def command_action(cmd: str) -> Action:
 @dataclass(frozen=True)
 class Profile:
     app_name: str
-    mappings: dict[str, Action]
+    mappings: dict[str, Action] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "mappings", dict(self.mappings))
+
+
+@dataclass(frozen=True)
+class Configuration:
+    profiles: tuple[Profile, ...] = ()
+
+    def get_profile(self, app_name: str) -> Profile | None:
+        for profile in self.profiles:
+            if profile.app_name == app_name:
+                return profile
+        return None

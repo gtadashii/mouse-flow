@@ -5,7 +5,7 @@ from typing import Any
 
 import yaml
 
-from mouseflow.domain import Action, ActionType, DispatchContext, EventType, Profile
+from mouseflow.domain import Action, ActionType, Configuration, Profile
 
 
 class ConfigurationError(Exception):
@@ -16,7 +16,13 @@ class ValidationError(ConfigurationError):
     pass
 
 
-def load_config(path: Path) -> dict[str, Any]:
+def parse_config(path: Path) -> Configuration:
+    raw_data = _load_yaml(path)
+    _validate_structure(raw_data)
+    return _translate_to_domain(raw_data)
+
+
+def _load_yaml(path: Path) -> dict[str, Any]:
     if not path.exists():
         raise ConfigurationError(f"Configuration file not found: {path}")
 
@@ -34,7 +40,7 @@ def load_config(path: Path) -> dict[str, Any]:
     return data
 
 
-def validate_config(data: dict[str, Any]) -> None:
+def _validate_structure(data: dict[str, Any]) -> None:
     if "profiles" not in data:
         raise ValidationError("Missing required field: profiles")
 
@@ -58,14 +64,12 @@ def validate_config(data: dict[str, Any]) -> None:
 
         for event_key, action in mappings.items():
             if not isinstance(action, dict):
-                raise ValidationError(
-                    f"Mapping {event_key} in profile {i} must be a mapping",
-                )
+                msg = f"Mapping {event_key} in profile {i} must be a mapping"
+                raise ValidationError(msg)
 
             if "type" not in action:
-                raise ValidationError(
-                    f"Mapping {event_key} in profile {i} missing required field: type",
-                )
+                msg = f"Mapping {event_key} in profile {i} missing required field: type"
+                raise ValidationError(msg)
 
             if "payload" not in action:
                 msg = (
@@ -83,7 +87,7 @@ def validate_config(data: dict[str, Any]) -> None:
                 raise ValidationError(msg)
 
 
-def translate_config(data: dict[str, Any]) -> list[Profile]:
+def _translate_to_domain(data: dict[str, Any]) -> Configuration:
     profiles: list[Profile] = []
 
     for profile_data in data["profiles"]:
@@ -105,32 +109,4 @@ def translate_config(data: dict[str, Any]) -> list[Profile]:
             Profile(app_name=profile_data["app_name"], mappings=mappings),
         )
 
-    return profiles
-
-
-def resolve_action(
-    context: DispatchContext,
-    profiles: list[Profile],
-) -> Action | None:
-    if context.window_info is None:
-        return None
-
-    app_name = context.window_info.application.app_name
-    event = context.event
-
-    if event.event_type == EventType.BUTTON:
-        if event.button is None:
-            return None
-        event_key = event.button.value
-    elif event.event_type == EventType.WHEEL:
-        if event.wheel is None:
-            return None
-        event_key = event.wheel.value
-    else:
-        return None
-
-    for profile in profiles:
-        if profile.app_name == app_name:
-            return profile.mappings.get(event_key)
-
-    return None
+    return Configuration(profiles=tuple(profiles))
