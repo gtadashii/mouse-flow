@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from mouseflow.domain import Application, Window
 from mouseflow.resolver import (
     SwayResolver,
     WindowInfo,
@@ -11,25 +12,33 @@ from mouseflow.resolver import (
 
 
 def test_window_info_creation() -> None:
-    info = WindowInfo(app_name="Firefox", title="ChatGPT")
-    assert info.app_name == "Firefox"
-    assert info.title == "ChatGPT"
+    app = Application(app_name="Firefox")
+    window = Window(title="ChatGPT")
+    info = WindowInfo(application=app, window=window)
+    assert info.application.app_name == "Firefox"
+    assert info.window.title == "ChatGPT"
 
 
 def test_window_info_immutable() -> None:
-    info = WindowInfo(app_name="Firefox", title="ChatGPT")
+    app = Application(app_name="Firefox")
+    window = Window(title="ChatGPT")
+    info = WindowInfo(application=app, window=window)
     with pytest.raises(AttributeError):
-        info.app_name = "Code"  # type: ignore[misc]
+        info.application = Application(app_name="Code")  # type: ignore[misc]
 
 
 def test_format_window_info() -> None:
-    info = WindowInfo(app_name="Firefox", title="ChatGPT")
+    app = Application(app_name="Firefox")
+    window = Window(title="ChatGPT")
+    info = WindowInfo(application=app, window=window)
     result = format_window_info(info)
     assert result == "Application\nFirefox\n\nTitle\nChatGPT"
 
 
 def test_format_window_info_with_special_chars() -> None:
-    info = WindowInfo(app_name="Code", title="README.md - mouse-flow")
+    app = Application(app_name="Code")
+    window = Window(title="README.md - mouse-flow")
+    info = WindowInfo(application=app, window=window)
     result = format_window_info(info)
     assert result == "Application\nCode\n\nTitle\nREADME.md - mouse-flow"
 
@@ -51,8 +60,8 @@ def test_sway_resolver_with_focused_window() -> None:
         result = resolver.resolve()
 
         assert result is not None
-        assert result.app_name == "firefox"
-        assert result.title == "ChatGPT"
+        assert result.application.app_name == "firefox"
+        assert result.window.title == "ChatGPT"
 
 
 def test_sway_resolver_with_window_class_fallback() -> None:
@@ -72,7 +81,7 @@ def test_sway_resolver_with_window_class_fallback() -> None:
         result = resolver.resolve()
 
         assert result is not None
-        assert result.app_name == "firefox"
+        assert result.application.app_name == "firefox"
 
 
 def test_sway_resolver_with_no_focused_window() -> None:
@@ -106,7 +115,7 @@ def test_sway_resolver_with_missing_app_name() -> None:
         result = resolver.resolve()
 
         assert result is not None
-        assert result.app_name == "Unknown"
+        assert result.application.app_name == "Unknown"
 
 
 def test_sway_resolver_with_missing_title() -> None:
@@ -126,11 +135,13 @@ def test_sway_resolver_with_missing_title() -> None:
         result = resolver.resolve()
 
         assert result is not None
-        assert result.title == "Untitled"
+        assert result.window.title == "Untitled"
 
 
 def test_resolve_active_window() -> None:
-    mock_info = WindowInfo(app_name="firefox", title="ChatGPT")
+    app = Application(app_name="firefox")
+    window = Window(title="ChatGPT")
+    mock_info = WindowInfo(application=app, window=window)
 
     with patch("mouseflow.resolver.SwayResolver") as mock_resolver_class:
         mock_resolver = MagicMock()

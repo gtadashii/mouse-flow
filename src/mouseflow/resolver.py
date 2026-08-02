@@ -6,11 +6,13 @@ from typing import Protocol
 
 from i3ipc import Connection
 
+from mouseflow.domain import Application, Window
+
 
 @dataclass(frozen=True)
 class WindowInfo:
-    app_name: str
-    title: str
+    application: Application
+    window: Window
 
 
 class WindowResolver(Protocol):
@@ -39,13 +41,16 @@ class SwayResolver:
             app_name = focused.app_id or focused.window_class or "Unknown"
             title = focused.name or "Untitled"
 
-            return WindowInfo(app_name=app_name, title=title)
+            application = Application(app_name=app_name)
+            window = Window(title=title)
+
+            return WindowInfo(application=application, window=window)
         except Exception:
             return None
 
 
 def format_window_info(info: WindowInfo) -> str:
-    return f"Application\n{info.app_name}\n\nTitle\n{info.title}"
+    return f"Application\n{info.application.app_name}\n\nTitle\n{info.window.title}"
 
 
 def resolve_active_window() -> WindowInfo | None:
