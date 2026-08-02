@@ -12,15 +12,25 @@ from mouseflow.runner import (
 )
 
 
+def _mock_keyboard() -> tuple[MagicMock, MagicMock]:
+    """Create mock keyboard controller and key converter."""
+    mock_keyboard = MagicMock()
+    mock_key_converter = MagicMock(side_effect=lambda names: names)
+    return mock_keyboard, mock_key_converter
+
+
 class TestKeyboardExecution:
     def test_keyboard_shortcut_executed_successfully(self) -> None:
         """Test that a keyboard shortcut is executed successfully."""
         action = keyboard_action("a")
 
-        mock_keyboard = MagicMock()
-        with patch(
-            "mouseflow.runner._create_keyboard_controller",
-            return_value=mock_keyboard,
+        mock_keyboard, mock_key_converter = _mock_keyboard()
+        with (
+            patch(
+                "mouseflow.runner._create_keyboard_controller",
+                return_value=mock_keyboard,
+            ),
+            patch("mouseflow.runner._to_pynput_keys", mock_key_converter),
         ):
             result = run_action(action)
 
@@ -54,10 +64,16 @@ class TestKeyboardExecution:
         """Test that keyboard execution failures are handled gracefully."""
         action = keyboard_action("invalid_key_that_does_not_exist")
 
-        mock_keyboard = MagicMock()
-        with patch(
-            "mouseflow.runner._create_keyboard_controller",
-            return_value=mock_keyboard,
+        mock_keyboard, mock_key_converter = _mock_keyboard()
+        mock_key_converter.side_effect = ValueError(
+            "Unknown key: invalid_key_that_does_not_exist",
+        )
+        with (
+            patch(
+                "mouseflow.runner._create_keyboard_controller",
+                return_value=mock_keyboard,
+            ),
+            patch("mouseflow.runner._to_pynput_keys", mock_key_converter),
         ):
             result = run_action(action)
 
@@ -88,10 +104,13 @@ class TestKeyboardExecution:
         """Test that a single key is executed correctly."""
         action = keyboard_action("a")
 
-        mock_keyboard = MagicMock()
-        with patch(
-            "mouseflow.runner._create_keyboard_controller",
-            return_value=mock_keyboard,
+        mock_keyboard, mock_key_converter = _mock_keyboard()
+        with (
+            patch(
+                "mouseflow.runner._create_keyboard_controller",
+                return_value=mock_keyboard,
+            ),
+            patch("mouseflow.runner._to_pynput_keys", mock_key_converter),
         ):
             result = run_action(action)
 
@@ -231,10 +250,13 @@ class TestActionTypeDispatch:
         """Test that keyboard actions are dispatched correctly."""
         action = keyboard_action("a")
 
-        mock_keyboard = MagicMock()
-        with patch(
-            "mouseflow.runner._create_keyboard_controller",
-            return_value=mock_keyboard,
+        mock_keyboard, mock_key_converter = _mock_keyboard()
+        with (
+            patch(
+                "mouseflow.runner._create_keyboard_controller",
+                return_value=mock_keyboard,
+            ),
+            patch("mouseflow.runner._to_pynput_keys", mock_key_converter),
         ):
             result = run_action(action)
 
@@ -255,7 +277,7 @@ class TestActionTypeDispatch:
 
     def test_unknown_action_type(self) -> None:
         """Test that unknown action types are handled gracefully."""
-        action = Action(action_type="UNKNOWN", payload="test")  # type: ignore
+        action = Action(action_type="UNKNOWN", payload="test")
 
         result = run_action(action)
 
@@ -309,10 +331,13 @@ class TestPipelineIntegration:
         assert action is not None
 
         # Execute action
-        mock_keyboard = MagicMock()
-        with patch(
-            "mouseflow.runner._create_keyboard_controller",
-            return_value=mock_keyboard,
+        mock_keyboard, mock_key_converter = _mock_keyboard()
+        with (
+            patch(
+                "mouseflow.runner._create_keyboard_controller",
+                return_value=mock_keyboard,
+            ),
+            patch("mouseflow.runner._to_pynput_keys", mock_key_converter),
         ):
             result = run_action(action)
 
@@ -469,10 +494,13 @@ class TestPipelineIntegration:
         action1 = resolve_action(context1, config)
         assert action1 is not None
 
-        mock_keyboard = MagicMock()
-        with patch(
-            "mouseflow.runner._create_keyboard_controller",
-            return_value=mock_keyboard,
+        mock_keyboard, mock_key_converter = _mock_keyboard()
+        with (
+            patch(
+                "mouseflow.runner._create_keyboard_controller",
+                return_value=mock_keyboard,
+            ),
+            patch("mouseflow.runner._to_pynput_keys", mock_key_converter),
         ):
             result1 = run_action(action1)
             assert result1.status == ExecutionStatus.SUCCESS
