@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Protocol
 
 from mouseflow.domain import Action, ActionType
 
@@ -16,6 +17,59 @@ class ExecutionResult:
     action: Action
     status: ExecutionStatus
     error_message: str | None = None
+
+
+class KeyboardController(Protocol):
+    def press(self, key: Any) -> None: ...
+    def release(self, key: Any) -> None: ...
+
+
+def _create_keyboard_controller() -> KeyboardController:
+    from pynput.keyboard import Controller
+
+    controller: KeyboardController = Controller()
+    return controller
+
+
+def _get_key(name: str) -> Any:
+    from pynput.keyboard import Key
+
+    key_map = {
+        "ctrl": Key.ctrl,
+        "alt": Key.alt,
+        "shift": Key.shift,
+        "super": Key.cmd,
+        "cmd": Key.cmd,
+        "win": Key.cmd,
+        "enter": Key.enter,
+        "tab": Key.tab,
+        "space": Key.space,
+        "backspace": Key.backspace,
+        "delete": Key.delete,
+        "escape": Key.esc,
+        "esc": Key.esc,
+        "up": Key.up,
+        "down": Key.down,
+        "left": Key.left,
+        "right": Key.right,
+        "home": Key.home,
+        "end": Key.end,
+        "pageup": Key.page_up,
+        "pagedown": Key.page_down,
+        "f1": Key.f1,
+        "f2": Key.f2,
+        "f3": Key.f3,
+        "f4": Key.f4,
+        "f5": Key.f5,
+        "f6": Key.f6,
+        "f7": Key.f7,
+        "f8": Key.f8,
+        "f9": Key.f9,
+        "f10": Key.f10,
+        "f11": Key.f11,
+        "f12": Key.f12,
+    }
+    return key_map.get(name)
 
 
 def run_action(action: Action) -> ExecutionResult:
@@ -34,20 +88,15 @@ def run_action(action: Action) -> ExecutionResult:
 def _execute_keyboard(action: Action) -> ExecutionResult:
     """Execute a keyboard shortcut action."""
     try:
-        from pynput.keyboard import Controller
-
-        keyboard = Controller()
+        keyboard = _create_keyboard_controller()
         keys = _parse_key_combination(action.payload)
 
-        # Press modifiers
         for key in keys[:-1]:
             keyboard.press(key)
 
-        # Press and release main key
         keyboard.press(keys[-1])
         keyboard.release(keys[-1])
 
-        # Release modifiers in reverse order
         for key in reversed(keys[:-1]):
             keyboard.release(key)
 
@@ -99,51 +148,14 @@ def _execute_command(action: Action) -> ExecutionResult:
 
 def _parse_key_combination(keys_str: str) -> list[object]:
     """Parse a key combination string like 'ctrl+shift+p' into pynput keys."""
-    from pynput.keyboard import Key
-
-    key_map: dict[str, object] = {
-        "ctrl": Key.ctrl,
-        "alt": Key.alt,
-        "shift": Key.shift,
-        "super": Key.cmd,
-        "cmd": Key.cmd,
-        "win": Key.cmd,
-        "enter": Key.enter,
-        "tab": Key.tab,
-        "space": Key.space,
-        "backspace": Key.backspace,
-        "delete": Key.delete,
-        "escape": Key.esc,
-        "esc": Key.esc,
-        "up": Key.up,
-        "down": Key.down,
-        "left": Key.left,
-        "right": Key.right,
-        "home": Key.home,
-        "end": Key.end,
-        "pageup": Key.page_up,
-        "pagedown": Key.page_down,
-        "f1": Key.f1,
-        "f2": Key.f2,
-        "f3": Key.f3,
-        "f4": Key.f4,
-        "f5": Key.f5,
-        "f6": Key.f6,
-        "f7": Key.f7,
-        "f8": Key.f8,
-        "f9": Key.f9,
-        "f10": Key.f10,
-        "f11": Key.f11,
-        "f12": Key.f12,
-    }
-
     parts = keys_str.lower().split("+")
     keys = []
 
     for part in parts:
         part = part.strip()
-        if part in key_map:
-            keys.append(key_map[part])
+        key = _get_key(part)
+        if key is not None:
+            keys.append(key)
         elif len(part) == 1:
             keys.append(part)
         else:
