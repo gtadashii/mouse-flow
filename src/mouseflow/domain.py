@@ -12,6 +12,17 @@ class ExecutionStatus(Enum):
     FAILURE = "FAILURE"
 
 
+class InputIdentifier(Enum):
+    BTN_SIDE = "BTN_SIDE"
+    BTN_EXTRA = "BTN_EXTRA"
+    BTN_FORWARD = "BTN_FORWARD"
+    BTN_BACK = "BTN_BACK"
+    GESTURE_UP = "GESTURE_UP"
+    GESTURE_DOWN = "GESTURE_DOWN"
+    GESTURE_LEFT = "GESTURE_LEFT"
+    GESTURE_RIGHT = "GESTURE_RIGHT"
+
+
 class MouseButton(Enum):
     BTN_SIDE = "BTN_SIDE"
     BTN_EXTRA = "BTN_EXTRA"
@@ -66,6 +77,11 @@ class Gesture:
 
 
 @dataclass(frozen=True)
+class UserInput:
+    identifier: InputIdentifier
+
+
+@dataclass(frozen=True)
 class Application:
     app_name: str = "Unknown"
 
@@ -83,7 +99,7 @@ class WindowInfo:
 
 @dataclass(frozen=True)
 class DispatchContext:
-    event: MouseEvent | Gesture
+    event: UserInput
     window_info: WindowInfo | None = None
 
 
@@ -109,12 +125,10 @@ def command_action(cmd: str) -> Action:
 @dataclass(frozen=True)
 class Profile:
     app_name: str
-    mappings: dict[str, Action] = field(default_factory=dict)
-    gesture_mappings: dict[GestureDirection, Action] = field(default_factory=dict)
+    mappings: dict[InputIdentifier, Action] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "mappings", dict(self.mappings))
-        object.__setattr__(self, "gesture_mappings", dict(self.gesture_mappings))
 
 
 @dataclass(frozen=True)

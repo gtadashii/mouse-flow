@@ -4,11 +4,9 @@ from mouseflow.dispatcher import EventDispatcher, format_dispatch_context
 from mouseflow.domain import (
     Application,
     DispatchContext,
-    Gesture,
-    GestureDirection,
-    MouseButton,
-    MouseEvent,
+    InputIdentifier,
     Profile,
+    UserInput,
     Window,
     WindowInfo,
 )
@@ -27,8 +25,8 @@ class MockWindowResolver:
 
 
 class TestEventDispatcherWithGestures:
-    def test_dispatch_mouse_event(self) -> None:
-        """Test dispatching a mouse event."""
+    def test_dispatch_button_input(self) -> None:
+        """Test dispatching a button input."""
         window_info = WindowInfo(
             application=Application(app_name="firefox"),
             window=Window(title="Test"),
@@ -36,7 +34,7 @@ class TestEventDispatcherWithGestures:
         resolver = MockWindowResolver(window_info)
         dispatcher = EventDispatcher(resolver)
 
-        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        event = UserInput(identifier=InputIdentifier.BTN_SIDE)
         events = [event]
 
         contexts = list(dispatcher.dispatch(events))
@@ -46,8 +44,8 @@ class TestEventDispatcherWithGestures:
         assert contexts[0].event == event
         assert contexts[0].window_info == window_info
 
-    def test_dispatch_gesture_event(self) -> None:
-        """Test dispatching a gesture event."""
+    def test_dispatch_gesture_input(self) -> None:
+        """Test dispatching a gesture input."""
         window_info = WindowInfo(
             application=Application(app_name="firefox"),
             window=Window(title="Test"),
@@ -55,18 +53,18 @@ class TestEventDispatcherWithGestures:
         resolver = MockWindowResolver(window_info)
         dispatcher = EventDispatcher(resolver)
 
-        gesture = Gesture(direction=GestureDirection.LEFT)
-        events = [gesture]
+        event = UserInput(identifier=InputIdentifier.GESTURE_LEFT)
+        events = [event]
 
         contexts = list(dispatcher.dispatch(events))
 
         assert len(contexts) == 1
         assert isinstance(contexts[0], DispatchContext)
-        assert contexts[0].event == gesture
+        assert contexts[0].event == event
         assert contexts[0].window_info == window_info
 
-    def test_dispatch_mixed_events(self) -> None:
-        """Test dispatching both mouse and gesture events."""
+    def test_dispatch_mixed_inputs(self) -> None:
+        """Test dispatching both button and gesture inputs."""
         window_info = WindowInfo(
             application=Application(app_name="firefox"),
             window=Window(title="Test"),
@@ -74,19 +72,19 @@ class TestEventDispatcherWithGestures:
         resolver = MockWindowResolver(window_info)
         dispatcher = EventDispatcher(resolver)
 
-        mouse_event = MouseEvent.button_event(MouseButton.BTN_SIDE)
-        gesture_event = Gesture(direction=GestureDirection.RIGHT)
-        events: list[MouseEvent | Gesture] = [mouse_event, gesture_event]
+        button_input = UserInput(identifier=InputIdentifier.BTN_SIDE)
+        gesture_input = UserInput(identifier=InputIdentifier.GESTURE_RIGHT)
+        events: list[UserInput] = [button_input, gesture_input]
 
         contexts = list(dispatcher.dispatch(events))
 
         assert len(contexts) == 2
-        assert contexts[0].event == mouse_event
-        assert contexts[1].event == gesture_event
+        assert contexts[0].event == button_input
+        assert contexts[1].event == gesture_input
         assert resolver.resolve_call_count == 2
 
     def test_dispatch_gesture_with_window_info(self) -> None:
-        """Test that window info is queried for gesture events."""
+        """Test that window info is queried for gesture inputs."""
         window_info = WindowInfo(
             application=Application(app_name="vscode"),
             window=Window(title="test.py"),
@@ -94,8 +92,8 @@ class TestEventDispatcherWithGestures:
         resolver = MockWindowResolver(window_info)
         dispatcher = EventDispatcher(resolver)
 
-        gesture = Gesture(direction=GestureDirection.UP)
-        events = [gesture]
+        event = UserInput(identifier=InputIdentifier.GESTURE_UP)
+        events = [event]
 
         contexts = list(dispatcher.dispatch(events))
 
@@ -108,8 +106,8 @@ class TestEventDispatcherWithGestures:
         resolver = MockWindowResolver(None)
         dispatcher = EventDispatcher(resolver)
 
-        gesture = Gesture(direction=GestureDirection.DOWN)
-        events = [gesture]
+        event = UserInput(identifier=InputIdentifier.GESTURE_DOWN)
+        events = [event]
 
         contexts = list(dispatcher.dispatch(events))
 
@@ -124,25 +122,25 @@ class TestFormatGestureContext:
             application=Application(app_name="firefox"),
             window=Window(title="ChatGPT"),
         )
-        gesture = Gesture(direction=GestureDirection.LEFT)
-        context = DispatchContext(event=gesture, window_info=window_info)
+        event = UserInput(identifier=InputIdentifier.GESTURE_LEFT)
+        context = DispatchContext(event=event, window_info=window_info)
 
         result = format_dispatch_context(context)
 
         assert "Application: firefox" in result
         assert "Title: ChatGPT" in result
-        assert "Gesture: LEFT" in result
+        assert "Input: GESTURE_LEFT" in result
 
     def test_format_gesture_without_window_info(self) -> None:
         """Test formatting gesture context without window info."""
-        gesture = Gesture(direction=GestureDirection.RIGHT)
-        context = DispatchContext(event=gesture, window_info=None)
+        event = UserInput(identifier=InputIdentifier.GESTURE_RIGHT)
+        context = DispatchContext(event=event, window_info=None)
 
         result = format_dispatch_context(context)
 
         assert "Application: Unknown" in result
         assert "Title: Unknown" in result
-        assert "Gesture: RIGHT" in result
+        assert "Input: GESTURE_RIGHT" in result
 
     def test_format_gesture_with_profile(self) -> None:
         """Test formatting gesture context with profile."""
@@ -150,8 +148,8 @@ class TestFormatGestureContext:
             application=Application(app_name="firefox"),
             window=Window(title="Test"),
         )
-        gesture = Gesture(direction=GestureDirection.UP)
-        context = DispatchContext(event=gesture, window_info=window_info)
+        event = UserInput(identifier=InputIdentifier.GESTURE_UP)
+        context = DispatchContext(event=event, window_info=window_info)
         profile = Profile(app_name="firefox")
 
         result = format_dispatch_context(context, profile)
@@ -164,8 +162,8 @@ class TestFormatGestureContext:
             application=Application(app_name="firefox"),
             window=Window(title="Test"),
         )
-        gesture = Gesture(direction=GestureDirection.DOWN)
-        context = DispatchContext(event=gesture, window_info=window_info)
+        event = UserInput(identifier=InputIdentifier.GESTURE_DOWN)
+        context = DispatchContext(event=event, window_info=window_info)
         profile = Profile(app_name="global")
 
         result = format_dispatch_context(context, profile)
@@ -179,10 +177,17 @@ class TestFormatGestureContext:
             window=Window(title="Test"),
         )
 
-        for direction in GestureDirection:
-            gesture = Gesture(direction=direction)
-            context = DispatchContext(event=gesture, window_info=window_info)
+        gesture_identifiers = [
+            InputIdentifier.GESTURE_UP,
+            InputIdentifier.GESTURE_DOWN,
+            InputIdentifier.GESTURE_LEFT,
+            InputIdentifier.GESTURE_RIGHT,
+        ]
+
+        for identifier in gesture_identifiers:
+            event = UserInput(identifier=identifier)
+            context = DispatchContext(event=event, window_info=window_info)
 
             result = format_dispatch_context(context)
 
-            assert f"Gesture: {direction.value}" in result
+            assert f"Input: {identifier.value}" in result

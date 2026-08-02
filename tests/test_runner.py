@@ -258,9 +258,9 @@ class TestPipelineIntegration:
             Application,
             Configuration,
             DispatchContext,
-            MouseButton,
-            MouseEvent,
+            InputIdentifier,
             Profile,
+            UserInput,
             Window,
             WindowInfo,
         )
@@ -272,7 +272,7 @@ class TestPipelineIntegration:
                 Profile(
                     app_name="firefox",
                     mappings={
-                        "BTN_SIDE": Action(
+                        InputIdentifier.BTN_SIDE: Action(
                             action_type=ActionType.KEYBOARD,
                             payload="alt+left",
                         ),
@@ -281,7 +281,7 @@ class TestPipelineIntegration:
             ),
         )
 
-        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        event = UserInput(identifier=InputIdentifier.BTN_SIDE)
         window_info = WindowInfo(
             application=Application(app_name="firefox"),
             window=Window(title="Test"),
@@ -308,9 +308,9 @@ class TestPipelineIntegration:
             Application,
             Configuration,
             DispatchContext,
-            MouseButton,
-            MouseEvent,
+            InputIdentifier,
             Profile,
+            UserInput,
             Window,
             WindowInfo,
             command_action,
@@ -323,13 +323,13 @@ class TestPipelineIntegration:
                 Profile(
                     app_name="terminal",
                     mappings={
-                        "BTN_EXTRA": command_action("echo 'test'"),
+                        InputIdentifier.BTN_EXTRA: command_action("echo 'test'"),
                     },
                 ),
             ),
         )
 
-        event = MouseEvent.button_event(MouseButton.BTN_EXTRA)
+        event = UserInput(identifier=InputIdentifier.BTN_EXTRA)
         window_info = WindowInfo(
             application=Application(app_name="terminal"),
             window=Window(title="Test"),
@@ -357,9 +357,9 @@ class TestPipelineIntegration:
             Application,
             Configuration,
             DispatchContext,
-            MouseButton,
-            MouseEvent,
+            InputIdentifier,
             Profile,
+            UserInput,
             Window,
             WindowInfo,
             command_action,
@@ -372,13 +372,13 @@ class TestPipelineIntegration:
                 Profile(
                     app_name="desktop",
                     mappings={
-                        "BTN_FORWARD": command_action("firefox"),
+                        InputIdentifier.BTN_FORWARD: command_action("firefox"),
                     },
                 ),
             ),
         )
 
-        event = MouseEvent.button_event(MouseButton.BTN_FORWARD)
+        event = UserInput(identifier=InputIdentifier.BTN_FORWARD)
         window_info = WindowInfo(
             application=Application(app_name="desktop"),
             window=Window(title="Test"),
@@ -408,9 +408,9 @@ class TestPipelineIntegration:
             Application,
             Configuration,
             DispatchContext,
-            MouseButton,
-            MouseEvent,
+            InputIdentifier,
             Profile,
+            UserInput,
             Window,
             WindowInfo,
             command_action,
@@ -423,11 +423,11 @@ class TestPipelineIntegration:
                 Profile(
                     app_name="firefox",
                     mappings={
-                        "BTN_SIDE": Action(
+                        InputIdentifier.BTN_SIDE: Action(
                             action_type=ActionType.KEYBOARD,
                             payload="alt+left",
                         ),
-                        "BTN_EXTRA": command_action("echo 'test'"),
+                        InputIdentifier.BTN_EXTRA: command_action("echo 'test'"),
                     },
                 ),
             ),
@@ -442,7 +442,7 @@ class TestPipelineIntegration:
         }
         runner = ActionRunner(executors=executors)
 
-        event1 = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        event1 = UserInput(identifier=InputIdentifier.BTN_SIDE)
         window_info = WindowInfo(
             application=Application(app_name="firefox"),
             window=Window(title="Test"),
@@ -457,7 +457,7 @@ class TestPipelineIntegration:
         result1 = runner.run(action1)
         assert result1.status == ExecutionStatus.SUCCESS
 
-        event2 = MouseEvent.button_event(MouseButton.BTN_EXTRA)
+        event2 = UserInput(identifier=InputIdentifier.BTN_EXTRA)
         context2 = DispatchContext(event=event2, window_info=window_info)
 
         action2 = resolve_action(context2, profile)
@@ -473,9 +473,9 @@ class TestPipelineIntegration:
             Application,
             Configuration,
             DispatchContext,
-            MouseButton,
-            MouseEvent,
+            InputIdentifier,
             Profile,
+            UserInput,
             Window,
             WindowInfo,
             command_action,
@@ -488,13 +488,13 @@ class TestPipelineIntegration:
                 Profile(
                     app_name="firefox",
                     mappings={
-                        "BTN_SIDE": command_action("nonexistent_command"),
+                        InputIdentifier.BTN_SIDE: command_action("nonexistent_command"),
                     },
                 ),
             ),
         )
 
-        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        event = UserInput(identifier=InputIdentifier.BTN_SIDE)
         window_info = WindowInfo(
             application=Application(app_name="firefox"),
             window=Window(title="Test"),

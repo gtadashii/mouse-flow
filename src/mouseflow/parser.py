@@ -9,11 +9,18 @@ from mouseflow.domain import (
     Action,
     ActionType,
     Configuration,
-    GestureDirection,
+    InputIdentifier,
     Profile,
 )
 
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "mouseflow" / "config.yaml"
+
+GESTURE_PREFIXES = {
+    "UP": "GESTURE_UP",
+    "DOWN": "GESTURE_DOWN",
+    "LEFT": "GESTURE_LEFT",
+    "RIGHT": "GESTURE_RIGHT",
+}
 
 
 class ConfigurationError(Exception):
@@ -78,7 +85,6 @@ def _validate_structure(data: dict[str, Any]) -> None:
             for event_key, action in mappings.items():
                 _validate_action_mapping(event_key, action, f"profile {i}")
 
-            # Validate gestures section if present
             if "gestures" in profile:
                 gestures = profile["gestures"]
                 if not isinstance(gestures, dict):
@@ -95,7 +101,6 @@ def _validate_structure(data: dict[str, Any]) -> None:
         for event_key, action in global_mappings.items():
             _validate_action_mapping(event_key, action, "global")
 
-        # Validate global gestures section if present
         if "global_gestures" in data:
             global_gestures = data["global_gestures"]
             if not isinstance(global_gestures, dict):
@@ -135,7 +140,6 @@ def _validate_gesture_mapping(
     action: Any,
     context: str,
 ) -> None:
-    # Validate direction
     valid_directions = {"UP", "DOWN", "LEFT", "RIGHT"}
     if direction not in valid_directions:
         raise ValidationError(
@@ -143,8 +147,15 @@ def _validate_gesture_mapping(
             f"Must be one of: {', '.join(sorted(valid_directions))}",
         )
 
-    # Validate action
     _validate_action_mapping(direction, action, context)
+
+
+def _to_input_identifier(key: str, is_gesture: bool = False) -> InputIdentifier:
+    if is_gesture:
+        gesture_key = GESTURE_PREFIXES.get(key)
+        if gesture_key is not None:
+            return InputIdentifier[gesture_key]
+    return InputIdentifier[key]
 
 
 def _translate_to_domain(data: dict[str, Any]) -> Configuration:
@@ -154,36 +165,37 @@ def _translate_to_domain(data: dict[str, Any]) -> Configuration:
         for profile_data in data["profiles"]:
             mappings = _parse_mappings(profile_data.get("mappings", {}))
             gesture_mappings = _parse_gesture_mappings(profile_data.get("gestures", {}))
+            all_mappings = {**mappings, **gesture_mappings}
             profiles.append(
                 Profile(
                     app_name=profile_data["app_name"],
-                    mappings=mappings,
-                    gesture_mappings=gesture_mappings,
+                    mappings=all_mappings,
                 ),
             )
 
     if "global" in data:
         mappings = _parse_mappings(data["global"])
         gesture_mappings = _parse_gesture_mappings(data.get("global_gestures", {}))
+        all_mappings = {**mappings, **gesture_mappings}
         profiles.append(
             Profile(
                 app_name="global",
-                mappings=mappings,
-                gesture_mappings=gesture_mappings,
+                mappings=all_mappings,
             ),
         )
 
     return Configuration(profiles=tuple(profiles))
 
 
-def _parse_mappings(mappings_data: dict[str, Any]) -> dict[str, Action]:
-    mappings: dict[str, Action] = {}
+def _parse_mappings(mappings_data: dict[str, Any]) -> dict[InputIdentifier, Action]:
+    mappings: dict[InputIdentifier, Action] = {}
     for event_key, action_data in mappings_data.items():
+        identifier = _to_input_identifier(event_key)
         action_type_str = action_data["type"]
         action_type = (
             ActionType.KEYBOARD if action_type_str == "keyboard" else ActionType.COMMAND
         )
-        mappings[event_key] = Action(
+        mappings[identifier] = Action(
             action_type=action_type,
             payload=action_data["payload"],
         )
@@ -192,15 +204,15 @@ def _parse_mappings(mappings_data: dict[str, Any]) -> dict[str, Action]:
 
 def _parse_gesture_mappings(
     gestures_data: dict[str, Any],
-) -> dict[GestureDirection, Action]:
-    gesture_mappings: dict[GestureDirection, Action] = {}
+) -> dict[InputIdentifier, Action]:
+    gesture_mappings: dict[InputIdentifier, Action] = {}
     for direction_str, action_data in gestures_data.items():
-        direction = GestureDirection[direction_str]
+        identifier = _to_input_identifier(direction_str, is_gesture=True)
         action_type_str = action_data["type"]
         action_type = (
             ActionType.KEYBOARD if action_type_str == "keyboard" else ActionType.COMMAND
         )
-        gesture_mappings[direction] = Action(
+        gesture_mappings[identifier] = Action(
             action_type=action_type,
             payload=action_data["payload"],
         )

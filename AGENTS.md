@@ -83,6 +83,7 @@ The domain model is the public API of the project. Components communicate by exc
 - The domain never knows about infrastructure details (evdev, i3ipc, file formats, etc.).
 - Domain objects are immutable by default.
 - Prefer explicit modeling over clever abstractions.
+- All user input types (buttons, gestures, wheel) are unified as `UserInput` in the pipeline. Internal representations (MouseEvent, Gesture) are converted at the Input Engine boundary.
 
 See `docs/architecture.md` for the complete list of domain objects and their relationships.
 

@@ -7,11 +7,9 @@ from mouseflow.domain import (
     GLOBAL_PROFILE_NAME,
     Application,
     DispatchContext,
-    EventType,
-    MouseButton,
-    MouseEvent,
+    InputIdentifier,
     Profile,
-    WheelAxis,
+    UserInput,
     Window,
     WindowInfo,
 )
@@ -39,7 +37,7 @@ class TestEventDispatcher:
         resolver = MockResolver(window_info)
         dispatcher = EventDispatcher(resolver)
 
-        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        event = UserInput(identifier=InputIdentifier.BTN_SIDE)
         events = iter([event])
 
         contexts = list(dispatcher.dispatch(events))
@@ -54,7 +52,7 @@ class TestEventDispatcher:
         resolver = MockResolver(window_info=None)
         dispatcher = EventDispatcher(resolver)
 
-        event = MouseEvent.button_event(MouseButton.BTN_EXTRA)
+        event = UserInput(identifier=InputIdentifier.BTN_EXTRA)
         events = iter([event])
 
         contexts = list(dispatcher.dispatch(events))
@@ -73,9 +71,9 @@ class TestEventDispatcher:
         resolver = MockResolver(window_info)
         dispatcher = EventDispatcher(resolver)
 
-        event1 = MouseEvent.button_event(MouseButton.BTN_SIDE)
-        event2 = MouseEvent.button_event(MouseButton.BTN_EXTRA)
-        event3 = MouseEvent.wheel_event(WheelAxis.REL_HWHEEL, 1)
+        event1 = UserInput(identifier=InputIdentifier.BTN_SIDE)
+        event2 = UserInput(identifier=InputIdentifier.BTN_EXTRA)
+        event3 = UserInput(identifier=InputIdentifier.GESTURE_RIGHT)
         events = iter([event1, event2, event3])
 
         contexts = list(dispatcher.dispatch(events))
@@ -91,7 +89,7 @@ class TestEventDispatcher:
         resolver = MockResolver()
         dispatcher = EventDispatcher(resolver)
 
-        events: Iterable[MouseEvent] = iter([])
+        events: Iterable[UserInput] = iter([])
         contexts = list(dispatcher.dispatch(events))
 
         assert len(contexts) == 0
@@ -102,13 +100,12 @@ class TestEventDispatcher:
         resolver = MockResolver()
         dispatcher = EventDispatcher(resolver)
 
-        event1 = MouseEvent.button_event(MouseButton.BTN_SIDE)
-        event2 = MouseEvent.button_event(MouseButton.BTN_EXTRA)
+        event1 = UserInput(identifier=InputIdentifier.BTN_SIDE)
+        event2 = UserInput(identifier=InputIdentifier.BTN_EXTRA)
         events = iter([event1, event2])
 
         contexts = list(dispatcher.dispatch(events))
 
-        # Each event should have its own context
         assert contexts[0].event == event1
         assert contexts[1].event == event2
         assert contexts[0] != contexts[1]
@@ -120,58 +117,40 @@ class TestFormatDispatchContext:
         app = Application(app_name="Firefox")
         window = Window(title="ChatGPT")
         window_info = WindowInfo(application=app, window=window)
-        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        event = UserInput(identifier=InputIdentifier.BTN_SIDE)
         context = DispatchContext(event=event, window_info=window_info)
 
         result = format_dispatch_context(context)
 
-        assert result == "Application: Firefox\nTitle: ChatGPT\nEvent: BTN_SIDE"
+        assert result == "Application: Firefox\nTitle: ChatGPT\nInput: BTN_SIDE"
 
     def test_format_without_window_info(self) -> None:
         """Test formatting without window info."""
-        event = MouseEvent.button_event(MouseButton.BTN_EXTRA)
+        event = UserInput(identifier=InputIdentifier.BTN_EXTRA)
         context = DispatchContext(event=event, window_info=None)
 
         result = format_dispatch_context(context)
 
-        assert result == "Application: Unknown\nTitle: Unknown\nEvent: BTN_EXTRA"
+        assert result == "Application: Unknown\nTitle: Unknown\nInput: BTN_EXTRA"
 
-    def test_format_wheel_event(self) -> None:
-        """Test formatting wheel event."""
+    def test_format_gesture_input(self) -> None:
+        """Test formatting gesture input."""
         app = Application(app_name="VSCode")
         window = Window(title="main.py")
         window_info = WindowInfo(application=app, window=window)
-        event = MouseEvent.wheel_event(WheelAxis.REL_HWHEEL, 1)
+        event = UserInput(identifier=InputIdentifier.GESTURE_RIGHT)
         context = DispatchContext(event=event, window_info=window_info)
 
         result = format_dispatch_context(context)
 
-        assert result == "Application: VSCode\nTitle: main.py\nEvent: REL_HWHEEL"
-
-    def test_format_button_event_no_button(self) -> None:
-        """Test formatting button event with no button (edge case)."""
-        event = MouseEvent(event_type=EventType.BUTTON, button=None, value=1)
-        context = DispatchContext(event=event, window_info=None)
-
-        result = format_dispatch_context(context)
-
-        assert result == "Application: Unknown\nTitle: Unknown\nEvent: Unknown"
-
-    def test_format_wheel_event_no_wheel(self) -> None:
-        """Test formatting wheel event with no wheel (edge case)."""
-        event = MouseEvent(event_type=EventType.WHEEL, wheel=None, value=1)
-        context = DispatchContext(event=event, window_info=None)
-
-        result = format_dispatch_context(context)
-
-        assert result == "Application: Unknown\nTitle: Unknown\nEvent: Unknown"
+        assert result == "Application: VSCode\nTitle: main.py\nInput: GESTURE_RIGHT"
 
     def test_format_with_application_profile(self) -> None:
         """Test formatting with application-specific profile."""
         app = Application(app_name="Firefox")
         window = Window(title="ChatGPT")
         window_info = WindowInfo(application=app, window=window)
-        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        event = UserInput(identifier=InputIdentifier.BTN_SIDE)
         context = DispatchContext(event=event, window_info=window_info)
         profile = Profile(app_name="firefox", mappings={})
 
@@ -179,7 +158,7 @@ class TestFormatDispatchContext:
 
         assert "Application: Firefox" in result
         assert "Title: ChatGPT" in result
-        assert "Event: BTN_SIDE" in result
+        assert "Input: BTN_SIDE" in result
         assert "Profile: firefox" in result
 
     def test_format_with_global_profile(self) -> None:
@@ -187,7 +166,7 @@ class TestFormatDispatchContext:
         app = Application(app_name="Chrome")
         window = Window(title="Test")
         window_info = WindowInfo(application=app, window=window)
-        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        event = UserInput(identifier=InputIdentifier.BTN_SIDE)
         context = DispatchContext(event=event, window_info=window_info)
         profile = Profile(app_name=GLOBAL_PROFILE_NAME, mappings={})
 
@@ -201,7 +180,7 @@ class TestFormatDispatchContext:
         app = Application(app_name="Firefox")
         window = Window(title="ChatGPT")
         window_info = WindowInfo(application=app, window=window)
-        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        event = UserInput(identifier=InputIdentifier.BTN_SIDE)
         context = DispatchContext(event=event, window_info=window_info)
 
         result = format_dispatch_context(context)

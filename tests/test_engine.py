@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from evdev import ecodes
 
+from mouseflow.domain import InputIdentifier, UserInput
 from mouseflow.engine import (
     SUPPORTED_EVENTS,
     get_event_name,
@@ -139,10 +140,8 @@ class TestReadEvents:
         events = list(read_events("/dev/input/event0"))
 
         assert len(events) == 1
-        assert events[0].event_type.value == "BUTTON"
-        assert events[0].button is not None
-        assert events[0].button.value == "BTN_SIDE"
-        assert events[0].value == 1
+        assert isinstance(events[0], UserInput)
+        assert events[0].identifier == InputIdentifier.BTN_SIDE
 
     @patch("mouseflow.engine.InputDevice")
     def test_read_events_yields_wheel_event(self, mock_input_device: MagicMock) -> None:
@@ -155,10 +154,8 @@ class TestReadEvents:
         events = list(read_events("/dev/input/event0"))
 
         assert len(events) == 1
-        assert events[0].event_type.value == "WHEEL"
-        assert events[0].wheel is not None
-        assert events[0].wheel.value == "REL_HWHEEL"
-        assert events[0].value == 1
+        assert isinstance(events[0], UserInput)
+        assert events[0].identifier == InputIdentifier.GESTURE_RIGHT
 
     @patch("mouseflow.engine.InputDevice")
     def test_read_events_filters_unsupported_events(
@@ -174,8 +171,7 @@ class TestReadEvents:
         events = list(read_events("/dev/input/event0"))
 
         assert len(events) == 1
-        assert events[0].button is not None
-        assert events[0].button.value == "BTN_SIDE"
+        assert events[0].identifier == InputIdentifier.BTN_SIDE
 
     @patch("mouseflow.engine.InputDevice")
     def test_read_events_multiple_events(self, mock_input_device: MagicMock) -> None:
@@ -192,9 +188,6 @@ class TestReadEvents:
         events = list(read_events("/dev/input/event0"))
 
         assert len(events) == 3
-        assert events[0].button is not None
-        assert events[0].button.value == "BTN_SIDE"
-        assert events[1].button is not None
-        assert events[1].button.value == "BTN_EXTRA"
-        assert events[2].wheel is not None
-        assert events[2].wheel.value == "REL_HWHEEL"
+        assert events[0].identifier == InputIdentifier.BTN_SIDE
+        assert events[1].identifier == InputIdentifier.BTN_EXTRA
+        assert events[2].identifier == InputIdentifier.GESTURE_RIGHT

@@ -23,37 +23,37 @@ This architecture ensures:
 │  Raw Device     │
 │  Event (evdev)  │
 └────────┬────────┘
-          │
-          ▼
+           │
+           ▼
 ┌─────────────────┐
 │ Device Discovery│ ← Selects supported mouse device
 └────────┬────────┘
-          │
-          ▼
+           │
+           ▼
 ┌─────────────────┐
-│  Input Engine   │ ← Converts raw events to MouseEvent/Gesture
+│  Input Engine   │ ← Converts raw events to UserInput
 │                 │   (includes GestureRecognizer)
 └────────┬────────┘
-          │ MouseEvent | Gesture
-          ▼
+           │ UserInput
+           ▼
 ┌─────────────────┐
 │     Event       │ ← Combines event + window context
 │   Dispatcher    │
 └────────┬────────┘
-          │ DispatchContext
-          ▼
+           │ DispatchContext
+           ▼
 ┌─────────────────┐
 │    Profile      │ ← Selects appropriate profile
 │   Resolver      │   (application-specific or global)
 └────────┬────────┘
-          │ Profile | None
-          ▼
+           │ Profile | None
+           ▼
 ┌─────────────────┐
 │ Configuration   │ ← Resolves action from selected Profile
 │    Loader       │
 └────────┬────────┘
-          │ Action
-          ▼
+           │ Action
+           ▼
 ┌─────────────────┐
 │  Action Runner  │ ← Orchestrates action execution
 │                 │
@@ -66,8 +66,8 @@ This architecture ensures:
 │  │  Adapter  │  │
 │  └───────────┘  │
 └────────┬────────┘
-          │ ExecutionResult
-          ▼
+           │ ExecutionResult
+           ▼
 ┌─────────────────┐
 │    Reporting    │ ← Formats and displays results
 └─────────────────┘
@@ -132,13 +132,14 @@ The Configuration Parser is the only component that knows about the YAML format.
 
 **Input:** Device path (`str`)
 
-**Output:** `Generator[MouseEvent]` - yields domain events as they occur
+**Output:** `Generator[UserInput]` - yields domain events as they occur
 
 **Key behaviors:**
 - Opens device and reads event loop
 - Filters supported events (BTN_SIDE, BTN_EXTRA, BTN_FORWARD, REL_HWHEEL)
-- Converts evdev events to `MouseEvent` domain objects
-- Yields events lazily via generator
+- Converts evdev events to internal MouseEvent/Gesture objects
+- Converts internal objects to UserInput for pipeline consumption
+- Yields UserInput objects lazily via generator
 - Handles device disconnection gracefully
 
 **Not responsible for:**
@@ -207,20 +208,20 @@ The Configuration Parser is the only component that knows about the YAML format.
 
 ### Event Dispatcher
 
-**Responsibility:** Orchestrate the combination of mouse events with window information.
+**Responsibility:** Orchestrate the combination of user inputs with window information.
 
 **Input:** 
-- `Iterable[MouseEvent]` from Input Engine
+- `Iterable[UserInput]` from Input Engine
 - `WindowResolver` instance (dependency injection)
 
-**Output:** `Generator[DispatchContext]` - yields unified context for each event
+**Output:** `Generator[DispatchContext]` - yields unified context for each input
 
 **Key behaviors:**
-- Receives mouse events from Input Engine
-- For each event, calls `resolver.resolve()` to get current window
-- Combines `MouseEvent` + `WindowInfo` into `DispatchContext`
+- Receives UserInput objects from Input Engine
+- For each input, calls `resolver.resolve()` to get current window
+- Combines `UserInput` + `WindowInfo` into `DispatchContext`
 - Handles window resolution failures (passes None)
-- Processes events independently (no state)
+- Processes inputs independently (no state)
 - Depends only on domain abstractions (WindowResolver protocol)
 
 **Not responsible for:**
@@ -238,15 +239,17 @@ The Configuration Parser is the only component that knows about the YAML format.
 **Responsibility:** Represent core business concepts as immutable objects.
 
 **Key objects:**
-- `MouseEvent` - mouse button press or wheel scroll
-- `Gesture` - directional gesture (UP, DOWN, LEFT, RIGHT)
-- `GestureDirection` - enum of gesture directions
+- `UserInput` - unified representation of any user interaction (button, gesture, wheel)
+- `InputIdentifier` - enum of all possible input identifiers (BTN_SIDE, GESTURE_UP, etc.)
+- `MouseEvent` - internal representation of mouse button/wheel events (used by Input Engine)
+- `Gesture` - internal representation of directional gestures (used by GestureRecognizer)
+- `GestureDirection` - enum of gesture directions (UP, DOWN, LEFT, RIGHT)
 - `Application` - active application name
 - `Window` - window title
 - `WindowInfo` - aggregates Application + Window
-- `DispatchContext` - combines MouseEvent/Gesture + WindowInfo
+- `DispatchContext` - combines UserInput + WindowInfo
 - `Action` - executable action (keyboard shortcut or command)
-- `Profile` - application-specific action and gesture mappings
+- `Profile` - application-specific action mappings
 - `Configuration` - collection of profiles loaded at startup
 
 **Key behaviors:**
@@ -254,6 +257,7 @@ The Configuration Parser is the only component that knows about the YAML format.
 - Value-based equality (automatic via dataclass)
 - Type-safe via enums and type hints
 - No infrastructure dependencies
+- UserInput is the public API for the pipeline; MouseEvent and Gesture are internal to Input Engine
 
 **Not responsible for:**
 - Reading hardware events
@@ -291,7 +295,7 @@ The Configuration Parser is the only component that knows about the YAML format.
 
 ### Configuration Loader
 
-**Responsibility:** Resolve which action, if any, matches a dispatched event context using a selected profile.
+**Responsibility:** Resolve which action, if any, matches a dispatched input context using a selected profile.
 
 **Input:**
 - `DispatchContext` from Event Dispatcher
@@ -300,14 +304,14 @@ The Configuration Parser is the only component that knows about the YAML format.
 **Output:** `Action | None` - the resolved action, or None if no match
 
 **Key behaviors:**
-- Receives DispatchContext containing event information
+- Receives DispatchContext containing UserInput information
 - Receives selected Profile from Profile Resolver
-- Finds the mapping for the specific event in the profile
+- Finds the mapping for the specific InputIdentifier in the profile
 - Returns the corresponding Action, or None if no match
 
 **Not responsible for:**
 - Parsing configuration files
-- Event processing
+- Input processing
 - Profile selection
 - Action execution
 - Hardware interaction
@@ -400,11 +404,20 @@ The domain model is the **public API** of MouseFlow. Components communicate excl
 
 ```python
 @dataclass(frozen=True)
-class MouseEvent:
-    event_type: EventType  # BUTTON or WHEEL
-    button: MouseButton | None
-    wheel: WheelAxis | None
-    value: int
+class UserInput:
+    identifier: InputIdentifier
+
+class InputIdentifier(Enum):
+    # Buttons
+    BTN_SIDE = "BTN_SIDE"
+    BTN_EXTRA = "BTN_EXTRA"
+    BTN_FORWARD = "BTN_FORWARD"
+    BTN_BACK = "BTN_BACK"
+    # Gestures
+    GESTURE_UP = "GESTURE_UP"
+    GESTURE_DOWN = "GESTURE_DOWN"
+    GESTURE_LEFT = "GESTURE_LEFT"
+    GESTURE_RIGHT = "GESTURE_RIGHT"
 
 @dataclass(frozen=True)
 class Application:
@@ -421,7 +434,7 @@ class WindowInfo:
 
 @dataclass(frozen=True)
 class DispatchContext:
-    event: MouseEvent
+    event: UserInput  # Unified input type
     window_info: WindowInfo | None  # None if resolution failed
 
 @dataclass(frozen=True)
@@ -432,7 +445,7 @@ class Action:
 @dataclass(frozen=True)
 class Profile:
     app_name: str
-    mappings: dict[str, Action]  # "BTN_SIDE" -> Action
+    mappings: dict[InputIdentifier, Action]  # Unified mapping
 
 @dataclass(frozen=True)
 class Configuration:
@@ -448,12 +461,30 @@ class ActionExecutor(Protocol):
     def execute(self, action: Action) -> ExecutionResult: ...
 ```
 
+### Internal Objects (Input Engine)
+
+These objects are used internally by the Input Engine and GestureRecognizer, then converted to `UserInput` before entering the pipeline:
+
+```python
+@dataclass(frozen=True)
+class MouseEvent:
+    event_type: EventType  # BUTTON or WHEEL
+    button: MouseButton | None
+    wheel: WheelAxis | None
+    value: int
+
+@dataclass(frozen=True)
+class Gesture:
+    direction: GestureDirection
+```
+
 ### Design Principles
 
 - **Immutability**: All objects are frozen dataclasses
 - **Value equality**: Objects with same values are equal
 - **Explicit modeling**: No primitive obsession
 - **Infrastructure independence**: Domain never knows about evdev/i3ipc
+- **Unified pipeline**: UserInput is the single type that flows through the pipeline
 
 ---
 
@@ -464,33 +495,26 @@ class ActionExecutor(Protocol):
 1. **Configuration Parser** reads `~/.config/mouseflow/config.yaml`
 2. **Configuration Parser** validates structure and required fields
 3. **Configuration Parser** translates YAML into `Configuration` domain object
-4. Application stores `Configuration` for use during event processing
+4. Application stores `Configuration` for use during input processing
 
-### Event Processing Phase
+### Input Processing Phase
 
 When the user presses BTN_SIDE in Firefox:
 
-1. **Input Engine** reads evdev event → converts to `MouseEvent(button=BTN_SIDE, value=1)`
-2. **Event Dispatcher** receives MouseEvent
-3. **Event Dispatcher** calls `resolver.resolve()` → gets `WindowInfo(app="firefox", title="ChatGPT")`
-4. **Event Dispatcher** yields `DispatchContext(event=..., window_info=...)`
-5. **Configuration Loader** looks up Profile for "firefox" in Configuration → finds mapping for BTN_SIDE
-6. **Action Runner** dispatches to `KeyboardAdapter` → executes `Action(type=KEYBOARD, payload="alt+left")`
-7. **Action Runner** returns `ExecutionResult(action=..., status=SUCCESS)`
+1. **Input Engine** reads evdev event → converts to internal `MouseEvent`
+2. **Input Engine** converts `MouseEvent` to `UserInput(identifier=BTN_SIDE)`
+3. **Event Dispatcher** receives UserInput
+4. **Event Dispatcher** calls `resolver.resolve()` → gets `WindowInfo(app="firefox", title="ChatGPT")`
+5. **Event Dispatcher** yields `DispatchContext(event=..., window_info=...)`
+6. **Configuration Loader** looks up Profile for "firefox" in Configuration → finds mapping for BTN_SIDE
+7. **Action Runner** dispatches to `KeyboardAdapter` → executes `Action(type=KEYBOARD, payload="alt+left")`
+8. **Action Runner** returns `ExecutionResult(action=..., status=SUCCESS)`
 
 Each step receives domain objects and produces domain objects. Infrastructure is confined to the edges.
 
-### Key Insight: Format Isolation
+### Key Insight: Unified Input Pipeline
 
-The YAML format is only known to the Configuration Parser. After startup:
-- The Configuration Loader works with `Configuration` domain objects
-- The Event Dispatcher works with `DispatchContext` domain objects
-- The Action Runner will work with `Action` domain objects
-
-No component except the Parser depends on the configuration file format. This enables:
-- Alternative configuration formats (TOML, JSON) without changing the Loader
-- Runtime configuration reload by replacing the Configuration object
-- Multiple configuration sources (files, APIs, plugins)
+All types of user input (buttons, gestures, thumb wheel) flow through the same pipeline as `UserInput` objects. The Configuration Loader uses `InputIdentifier` as the mapping key, eliminating the need for separate mapping dictionaries or type-specific branching logic.
 
 ---
 

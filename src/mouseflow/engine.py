@@ -10,8 +10,11 @@ from evdev import InputDevice, ecodes
 from mouseflow.domain import (
     EventType,
     Gesture,
+    GestureDirection,
+    InputIdentifier,
     MouseButton,
     MouseEvent,
+    UserInput,
     WheelAxis,
 )
 from mouseflow.gesture import GestureRecognizer
@@ -108,8 +111,51 @@ def to_movement_delta(event: InputEvent) -> tuple[int, int] | None:
     return None
 
 
-def read_events(device_path: str) -> Generator[MouseEvent]:
-    """Read mouse events from device (legacy, button/wheel only)."""
+def mouse_event_to_userinput(event: MouseEvent) -> UserInput:
+    """Convert internal MouseEvent to UserInput for pipeline consumption."""
+    if event.event_type == EventType.BUTTON:
+        if event.button is None:
+            raise ValueError("Button event must have a button")
+        button_to_identifier = {
+            MouseButton.BTN_SIDE: InputIdentifier.BTN_SIDE,
+            MouseButton.BTN_EXTRA: InputIdentifier.BTN_EXTRA,
+            MouseButton.BTN_FORWARD: InputIdentifier.BTN_FORWARD,
+            MouseButton.BTN_BACK: InputIdentifier.BTN_BACK,
+        }
+        identifier = button_to_identifier.get(event.button)
+        if identifier is None:
+            raise ValueError(f"Unknown button: {event.button}")
+        return UserInput(identifier=identifier)
+
+    if event.event_type == EventType.WHEEL:
+        if event.wheel is None:
+            raise ValueError("Wheel event must have a wheel axis")
+        if event.wheel == WheelAxis.REL_HWHEEL:
+            if event.value > 0:
+                return UserInput(identifier=InputIdentifier.GESTURE_RIGHT)
+            if event.value < 0:
+                return UserInput(identifier=InputIdentifier.GESTURE_LEFT)
+        raise ValueError(f"Unsupported wheel axis: {event.wheel}")
+
+    raise ValueError(f"Unknown event type: {event.event_type}")
+
+
+def gesture_to_userinput(gesture: Gesture) -> UserInput:
+    """Convert internal Gesture to UserInput for pipeline consumption."""
+    direction_to_identifier = {
+        GestureDirection.UP: InputIdentifier.GESTURE_UP,
+        GestureDirection.DOWN: InputIdentifier.GESTURE_DOWN,
+        GestureDirection.LEFT: InputIdentifier.GESTURE_LEFT,
+        GestureDirection.RIGHT: InputIdentifier.GESTURE_RIGHT,
+    }
+    identifier = direction_to_identifier.get(gesture.direction)
+    if identifier is None:
+        raise ValueError(f"Unknown gesture direction: {gesture.direction}")
+    return UserInput(identifier=identifier)
+
+
+def read_events(device_path: str) -> Generator[UserInput]:
+    """Read mouse events from device and convert to UserInput."""
     device = open_device(device_path)
 
     def signal_handler(_signum: int, _frame: object) -> None:
@@ -123,7 +169,7 @@ def read_events(device_path: str) -> Generator[MouseEvent]:
             if is_supported_event(event):
                 domain_event = to_domain_event(event)
                 if domain_event is not None:
-                    yield domain_event
+                    yield mouse_event_to_userinput(domain_event)
     except OSError:
         print("Error: Device disconnected or unavailable", file=sys.stderr)
         device.close()
@@ -132,17 +178,17 @@ def read_events(device_path: str) -> Generator[MouseEvent]:
 
 def read_events_with_gestures(
     device_path: str,
-) -> Generator[MouseEvent | Gesture]:
+) -> Generator[UserInput]:
     """Read mouse events with gesture recognition.
 
-    This generator yields both MouseEvent objects (for button/wheel events)
-    and Gesture objects (when a directional gesture is recognized).
+    This generator yields UserInput objects for both button/wheel events
+    and recognized gestures.
 
     Args:
         device_path: Path to the input device.
 
     Yields:
-        MouseEvent or Gesture objects as they occur.
+        UserInput objects as they occur.
     """
     device = open_device(device_path)
     recognizer = GestureRecognizer()
@@ -158,28 +204,23 @@ def read_events_with_gestures(
             if not is_supported_event(event):
                 continue
 
-            # Check for movement events (REL_X, REL_Y)
             movement = to_movement_delta(event)
             if movement is not None:
                 delta_x, delta_y = movement
                 recognizer.process_movement(delta_x, delta_y)
                 continue
 
-            # Convert to domain event
             domain_event = to_domain_event(event)
             if domain_event is None:
                 continue
 
-            # Check if this is the gesture button
             is_gesture_button = domain_event.button == recognizer._gesture_button
 
-            # Process through gesture recognizer
             gesture = recognizer.process_event(domain_event)
             if gesture is not None:
-                yield gesture
+                yield gesture_to_userinput(gesture)
             elif not is_gesture_button:
-                # Only yield non-gesture button events
-                yield domain_event
+                yield mouse_event_to_userinput(domain_event)
     except OSError:
         print("Error: Device disconnected or unavailable", file=sys.stderr)
         device.close()
@@ -188,14 +229,7 @@ def read_events_with_gestures(
 
 def run_engine(device_path: str) -> None:
     try:
-        for domain_event in read_events(device_path):
-            if domain_event.event_type == EventType.BUTTON:
-                button = domain_event.button
-                button_val = button.value if button else "UNKNOWN"
-                print(button_val)
-            elif domain_event.event_type == EventType.WHEEL:
-                wheel = domain_event.wheel
-                wheel_val = wheel.value if wheel else "UNKNOWN"
-                print(wheel_val)
+        for user_input in read_events(device_path):
+            print(user_input.identifier.value)
     except OSError:
         sys.exit(1)

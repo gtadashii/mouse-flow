@@ -105,3 +105,20 @@ Domain objects with identical values SHALL be considered equal.
 #### Scenario: Equal applications
 - **WHEN** two application objects have the same name
 - **THEN** the objects are considered equal
+
+### Requirement: Gesture representation
+The system SHALL provide immutable domain objects representing mouse gestures.
+
+#### Scenario: Gesture direction enum exists
+- **WHEN** the domain model is loaded
+- **THEN** a GestureDirection enum exists with values: UP, DOWN, LEFT, RIGHT
+
+#### Scenario: Gesture object created
+- **WHEN** a gesture is recognized
+- **THEN** the system creates a Gesture domain object
+- **AND** the object contains the direction (GestureDirection)
+- **AND** the object is immutable
+
+#### Scenario: Gesture object equality
+- **WHEN** two Gesture objects have the same direction
+- **THEN** the objects are considered equal

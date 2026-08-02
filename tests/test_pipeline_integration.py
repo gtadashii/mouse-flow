@@ -7,7 +7,8 @@ from evdev import ecodes
 from mouseflow.domain import (
     Application,
     DispatchContext,
-    MouseEvent,
+    InputIdentifier,
+    UserInput,
     Window,
     WindowInfo,
 )
@@ -42,9 +43,8 @@ class TestPipelineIntegration:
         assert len(events) == 1
 
         context = DispatchContext(event=events[0], window_info=window_info)
-        assert isinstance(context.event, MouseEvent)
-        assert context.event.button is not None
-        assert context.event.button.value == "BTN_SIDE"
+        assert isinstance(context.event, UserInput)
+        assert context.event.identifier == InputIdentifier.BTN_SIDE
         assert context.window_info is not None
         assert context.window_info.application.app_name == "Firefox"
         assert context.window_info.window.title == "ChatGPT"
@@ -74,15 +74,12 @@ class TestPipelineIntegration:
         ]
 
         assert len(contexts) == 3
-        assert isinstance(contexts[0].event, MouseEvent)
-        assert contexts[0].event.button is not None
-        assert contexts[0].event.button.value == "BTN_SIDE"
-        assert isinstance(contexts[1].event, MouseEvent)
-        assert contexts[1].event.button is not None
-        assert contexts[1].event.button.value == "BTN_EXTRA"
-        assert isinstance(contexts[2].event, MouseEvent)
-        assert contexts[2].event.wheel is not None
-        assert contexts[2].event.wheel.value == "REL_HWHEEL"
+        assert isinstance(contexts[0].event, UserInput)
+        assert contexts[0].event.identifier == InputIdentifier.BTN_SIDE
+        assert isinstance(contexts[1].event, UserInput)
+        assert contexts[1].event.identifier == InputIdentifier.BTN_EXTRA
+        assert isinstance(contexts[2].event, UserInput)
+        assert contexts[2].event.identifier == InputIdentifier.GESTURE_RIGHT
 
         for context in contexts:
             assert context.window_info is not None
@@ -90,7 +87,7 @@ class TestPipelineIntegration:
 
     @patch("mouseflow.engine.InputDevice")
     def test_pipeline_with_none_window_info(self, mock_input_device: MagicMock) -> None:
-        """Test pipeline when window resolution fails."""
+        """Test pipeline with None window info."""
         mock_device = MagicMock()
         mock_input_device.return_value = mock_device
 
@@ -101,7 +98,6 @@ class TestPipelineIntegration:
         assert len(events) == 1
 
         context = DispatchContext(event=events[0], window_info=None)
-        assert isinstance(context.event, MouseEvent)
-        assert context.event.button is not None
-        assert context.event.button.value == "BTN_SIDE"
+        assert isinstance(context.event, UserInput)
+        assert context.event.identifier == InputIdentifier.BTN_SIDE
         assert context.window_info is None

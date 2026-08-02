@@ -8,9 +8,11 @@ from mouseflow.domain import (
     Configuration,
     DispatchContext,
     EventType,
+    InputIdentifier,
     MouseButton,
     MouseEvent,
     Profile,
+    UserInput,
     WheelAxis,
     Window,
     WindowInfo,
@@ -25,6 +27,41 @@ class TestMouseButton:
         assert MouseButton.BTN_EXTRA.value == "BTN_EXTRA"
         assert MouseButton.BTN_FORWARD.value == "BTN_FORWARD"
         assert MouseButton.BTN_BACK.value == "BTN_BACK"
+
+
+class TestInputIdentifier:
+    def test_button_identifiers(self) -> None:
+        assert InputIdentifier.BTN_SIDE.value == "BTN_SIDE"
+        assert InputIdentifier.BTN_EXTRA.value == "BTN_EXTRA"
+        assert InputIdentifier.BTN_FORWARD.value == "BTN_FORWARD"
+        assert InputIdentifier.BTN_BACK.value == "BTN_BACK"
+
+    def test_gesture_identifiers(self) -> None:
+        assert InputIdentifier.GESTURE_UP.value == "GESTURE_UP"
+        assert InputIdentifier.GESTURE_DOWN.value == "GESTURE_DOWN"
+        assert InputIdentifier.GESTURE_LEFT.value == "GESTURE_LEFT"
+        assert InputIdentifier.GESTURE_RIGHT.value == "GESTURE_RIGHT"
+
+
+class TestUserInput:
+    def test_creation(self) -> None:
+        user_input = UserInput(identifier=InputIdentifier.BTN_SIDE)
+        assert user_input.identifier == InputIdentifier.BTN_SIDE
+
+    def test_equality(self) -> None:
+        input1 = UserInput(identifier=InputIdentifier.BTN_SIDE)
+        input2 = UserInput(identifier=InputIdentifier.BTN_SIDE)
+        assert input1 == input2
+
+    def test_inequality(self) -> None:
+        input1 = UserInput(identifier=InputIdentifier.BTN_SIDE)
+        input2 = UserInput(identifier=InputIdentifier.BTN_EXTRA)
+        assert input1 != input2
+
+    def test_immutability(self) -> None:
+        user_input = UserInput(identifier=InputIdentifier.BTN_SIDE)
+        with pytest.raises(AttributeError):
+            user_input.identifier = InputIdentifier.BTN_EXTRA  # type: ignore[misc]
 
 
 class TestWheelAxis:
@@ -169,11 +206,11 @@ class TestAction:
 
 class TestProfile:
     def test_creation(self) -> None:
-        mappings = {"BTN_SIDE": keyboard_action("alt+left")}
+        mappings = {InputIdentifier.BTN_SIDE: keyboard_action("alt+left")}
         profile = Profile(app_name="firefox", mappings=mappings)
         assert profile.app_name == "firefox"
         assert len(profile.mappings) == 1
-        assert "BTN_SIDE" in profile.mappings
+        assert InputIdentifier.BTN_SIDE in profile.mappings
 
     def test_empty_profile(self) -> None:
         profile = Profile(app_name="firefox", mappings={})
@@ -181,14 +218,14 @@ class TestProfile:
         assert len(profile.mappings) == 0
 
     def test_equality(self) -> None:
-        mappings = {"BTN_SIDE": keyboard_action("alt+left")}
+        mappings = {InputIdentifier.BTN_SIDE: keyboard_action("alt+left")}
         profile1 = Profile(app_name="firefox", mappings=mappings)
         profile2 = Profile(app_name="firefox", mappings=mappings)
         assert profile1 == profile2
 
     def test_inequality(self) -> None:
-        mappings1 = {"BTN_SIDE": keyboard_action("alt+left")}
-        mappings2 = {"BTN_SIDE": keyboard_action("alt+right")}
+        mappings1 = {InputIdentifier.BTN_SIDE: keyboard_action("alt+left")}
+        mappings2 = {InputIdentifier.BTN_SIDE: keyboard_action("alt+right")}
         profile1 = Profile(app_name="firefox", mappings=mappings1)
         profile2 = Profile(app_name="firefox", mappings=mappings2)
         assert profile1 != profile2
@@ -237,7 +274,7 @@ class TestWindowInfo:
 
 class TestDispatchContext:
     def test_creation_with_window_info(self) -> None:
-        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        event = UserInput(identifier=InputIdentifier.BTN_SIDE)
         app = Application(app_name="Firefox")
         window = Window(title="ChatGPT")
         window_info = WindowInfo(application=app, window=window)
@@ -246,13 +283,13 @@ class TestDispatchContext:
         assert context.window_info == window_info
 
     def test_creation_without_window_info(self) -> None:
-        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        event = UserInput(identifier=InputIdentifier.BTN_SIDE)
         context = DispatchContext(event=event)
         assert context.event == event
         assert context.window_info is None
 
     def test_equality(self) -> None:
-        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        event = UserInput(identifier=InputIdentifier.BTN_SIDE)
         app = Application(app_name="Firefox")
         window = Window(title="ChatGPT")
         window_info = WindowInfo(application=app, window=window)
@@ -261,17 +298,17 @@ class TestDispatchContext:
         assert context1 == context2
 
     def test_inequality(self) -> None:
-        event1 = MouseEvent.button_event(MouseButton.BTN_SIDE)
-        event2 = MouseEvent.button_event(MouseButton.BTN_EXTRA)
+        event1 = UserInput(identifier=InputIdentifier.BTN_SIDE)
+        event2 = UserInput(identifier=InputIdentifier.BTN_EXTRA)
         context1 = DispatchContext(event=event1)
         context2 = DispatchContext(event=event2)
         assert context1 != context2
 
     def test_immutability(self) -> None:
-        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        event = UserInput(identifier=InputIdentifier.BTN_SIDE)
         context = DispatchContext(event=event)
         with pytest.raises(AttributeError):
-            context.event = MouseEvent.button_event(MouseButton.BTN_EXTRA)  # type: ignore[misc]
+            context.event = UserInput(identifier=InputIdentifier.BTN_EXTRA)  # type: ignore[misc]
 
 
 class TestGlobalProfileName:

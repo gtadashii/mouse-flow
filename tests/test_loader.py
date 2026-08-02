@@ -7,10 +7,9 @@ from mouseflow.domain import (
     ActionType,
     Application,
     DispatchContext,
-    MouseButton,
-    MouseEvent,
+    InputIdentifier,
     Profile,
-    WheelAxis,
+    UserInput,
     Window,
     WindowInfo,
 )
@@ -24,13 +23,13 @@ class TestResolveAction:
         profile = Profile(
             app_name="firefox",
             mappings={
-                "BTN_SIDE": Action(
+                InputIdentifier.BTN_SIDE: Action(
                     action_type=ActionType.KEYBOARD,
                     payload="alt+left",
                 ),
             },
         )
-        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        event = UserInput(identifier=InputIdentifier.BTN_SIDE)
         context = DispatchContext(event=event)
 
         action = resolve_action(context, profile)
@@ -44,13 +43,13 @@ class TestResolveAction:
         profile = Profile(
             app_name="firefox",
             mappings={
-                "BTN_SIDE": Action(
+                InputIdentifier.BTN_SIDE: Action(
                     action_type=ActionType.KEYBOARD,
                     payload="alt+left",
                 ),
             },
         )
-        event = MouseEvent.button_event(MouseButton.BTN_EXTRA)
+        event = UserInput(identifier=InputIdentifier.BTN_EXTRA)
         context = DispatchContext(event=event)
 
         action = resolve_action(context, profile)
@@ -59,25 +58,25 @@ class TestResolveAction:
 
     def test_resolve_null_profile(self) -> None:
         """Test resolving when profile is null."""
-        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        event = UserInput(identifier=InputIdentifier.BTN_SIDE)
         context = DispatchContext(event=event)
 
         action = resolve_action(context, None)
 
         assert action is None
 
-    def test_resolve_wheel_event(self) -> None:
-        """Test resolving wheel event."""
+    def test_resolve_gesture_input(self) -> None:
+        """Test resolving gesture input."""
         profile = Profile(
             app_name="firefox",
             mappings={
-                "REL_HWHEEL": Action(
+                InputIdentifier.GESTURE_RIGHT: Action(
                     action_type=ActionType.COMMAND,
                     payload="swaymsg workspace next",
                 ),
             },
         )
-        event = MouseEvent.wheel_event(WheelAxis.REL_HWHEEL, 1)
+        event = UserInput(identifier=InputIdentifier.GESTURE_RIGHT)
         context = DispatchContext(event=event)
 
         action = resolve_action(context, profile)
@@ -108,7 +107,7 @@ class TestIntegration:
         config = parse_config(config_file)
         resolver = DefaultProfileResolver()
 
-        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        event = UserInput(identifier=InputIdentifier.BTN_SIDE)
         window_info = WindowInfo(
             application=Application(app_name="firefox"),
             window=Window(title="Test"),
@@ -139,7 +138,7 @@ class TestIntegration:
         config = parse_config(config_file)
         resolver = DefaultProfileResolver()
 
-        event = MouseEvent.button_event(MouseButton.BTN_EXTRA)
+        event = UserInput(identifier=InputIdentifier.BTN_EXTRA)
         window_info = WindowInfo(
             application=Application(app_name="chrome"),
             window=Window(title="Test"),
@@ -172,7 +171,7 @@ class TestIntegration:
         config = parse_config(config_file)
         resolver = DefaultProfileResolver()
 
-        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        event = UserInput(identifier=InputIdentifier.BTN_SIDE)
         window_info = WindowInfo(
             application=Application(app_name="chrome"),
             window=Window(title="Test"),

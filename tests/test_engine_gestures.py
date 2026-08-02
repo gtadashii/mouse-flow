@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from evdev import ecodes
 
-from mouseflow.domain import Gesture, GestureDirection, MouseButton, MouseEvent
+from mouseflow.domain import InputIdentifier, UserInput
 from mouseflow.engine import read_events_with_gestures, to_movement_delta
 
 
@@ -64,7 +64,6 @@ class TestReadEventsWithGestures:
         mock_device = MagicMock()
         mock_open_device.return_value = mock_device
 
-        # Simulate BTN_SIDE press
         event = MagicMock()
         event.type = ecodes.EV_KEY
         event.code = ecodes.BTN_SIDE
@@ -74,8 +73,8 @@ class TestReadEventsWithGestures:
         events = list(read_events_with_gestures("/dev/input/event0"))
 
         assert len(events) == 1
-        assert isinstance(events[0], MouseEvent)
-        assert events[0].button == MouseButton.BTN_SIDE
+        assert isinstance(events[0], UserInput)
+        assert events[0].identifier == InputIdentifier.BTN_SIDE
 
     @patch("mouseflow.engine.open_device")
     def test_gesture_button_press_not_yielded(
@@ -86,7 +85,6 @@ class TestReadEventsWithGestures:
         mock_device = MagicMock()
         mock_open_device.return_value = mock_device
 
-        # Simulate BTN_EXTRA press (gesture button)
         event = MagicMock()
         event.type = ecodes.EV_KEY
         event.code = ecodes.BTN_EXTRA
@@ -106,7 +104,6 @@ class TestReadEventsWithGestures:
         mock_device = MagicMock()
         mock_open_device.return_value = mock_device
 
-        # Simulate REL_X movement
         event = MagicMock()
         event.type = ecodes.EV_REL
         event.code = ecodes.REL_X
@@ -126,17 +123,14 @@ class TestReadEventsWithGestures:
         mock_device = MagicMock()
         mock_open_device.return_value = mock_device
 
-        # Simulate gesture: BTN_EXTRA press, movement right, BTN_EXTRA release
         events_input = []
 
-        # BTN_EXTRA press
         press_event = MagicMock()
         press_event.type = ecodes.EV_KEY
         press_event.code = ecodes.BTN_EXTRA
         press_event.value = 1
         events_input.append(press_event)
 
-        # Movement right (100 pixels)
         for _ in range(10):
             move_event = MagicMock()
             move_event.type = ecodes.EV_REL
@@ -144,7 +138,6 @@ class TestReadEventsWithGestures:
             move_event.value = 10
             events_input.append(move_event)
 
-        # BTN_EXTRA release
         release_event = MagicMock()
         release_event.type = ecodes.EV_KEY
         release_event.code = ecodes.BTN_EXTRA
@@ -156,8 +149,8 @@ class TestReadEventsWithGestures:
         events = list(read_events_with_gestures("/dev/input/event0"))
 
         assert len(events) == 1
-        assert isinstance(events[0], Gesture)
-        assert events[0].direction == GestureDirection.RIGHT
+        assert isinstance(events[0], UserInput)
+        assert events[0].identifier == InputIdentifier.GESTURE_RIGHT
 
     @patch("mouseflow.engine.open_device")
     def test_no_gesture_when_below_threshold(
@@ -170,21 +163,18 @@ class TestReadEventsWithGestures:
 
         events_input = []
 
-        # BTN_EXTRA press
         press_event = MagicMock()
         press_event.type = ecodes.EV_KEY
         press_event.code = ecodes.BTN_EXTRA
         press_event.value = 1
         events_input.append(press_event)
 
-        # Small movement (below threshold)
         move_event = MagicMock()
         move_event.type = ecodes.EV_REL
         move_event.code = ecodes.REL_X
         move_event.value = 10
         events_input.append(move_event)
 
-        # BTN_EXTRA release
         release_event = MagicMock()
         release_event.type = ecodes.EV_KEY
         release_event.code = ecodes.BTN_EXTRA
@@ -208,7 +198,6 @@ class TestReadEventsWithGestures:
 
         events_input = []
 
-        # First: complete a gesture
         press_event = MagicMock()
         press_event.type = ecodes.EV_KEY
         press_event.code = ecodes.BTN_EXTRA
@@ -228,7 +217,6 @@ class TestReadEventsWithGestures:
         release_event.value = 0
         events_input.append(release_event)
 
-        # Then: BTN_SIDE press (should be yielded)
         side_event = MagicMock()
         side_event.type = ecodes.EV_KEY
         side_event.code = ecodes.BTN_SIDE
@@ -240,6 +228,7 @@ class TestReadEventsWithGestures:
         events = list(read_events_with_gestures("/dev/input/event0"))
 
         assert len(events) == 2
-        assert isinstance(events[0], Gesture)
-        assert isinstance(events[1], MouseEvent)
-        assert events[1].button == MouseButton.BTN_SIDE
+        assert isinstance(events[0], UserInput)
+        assert events[0].identifier == InputIdentifier.GESTURE_RIGHT
+        assert isinstance(events[1], UserInput)
+        assert events[1].identifier == InputIdentifier.BTN_SIDE

@@ -9,11 +9,9 @@ from mouseflow.domain import (
     ActionType,
     Application,
     DispatchContext,
-    Gesture,
-    GestureDirection,
-    MouseButton,
-    MouseEvent,
+    InputIdentifier,
     Profile,
+    UserInput,
     Window,
     WindowInfo,
 )
@@ -49,10 +47,10 @@ class TestParseGestures:
         assert len(config.profiles) == 1
         profile = config.profiles[0]
         assert profile.app_name == "firefox"
-        assert GestureDirection.LEFT in profile.gesture_mappings
-        assert GestureDirection.RIGHT in profile.gesture_mappings
-        assert profile.gesture_mappings[GestureDirection.LEFT].payload == "alt+left"
-        assert profile.gesture_mappings[GestureDirection.RIGHT].payload == "alt+right"
+        assert InputIdentifier.GESTURE_LEFT in profile.mappings
+        assert InputIdentifier.GESTURE_RIGHT in profile.mappings
+        assert profile.mappings[InputIdentifier.GESTURE_LEFT].payload == "alt+left"
+        assert profile.mappings[InputIdentifier.GESTURE_RIGHT].payload == "alt+right"
 
     def test_parse_global_gestures(self, tmp_path: Path) -> None:
         """Test parsing global gesture mappings."""
@@ -73,9 +71,9 @@ class TestParseGestures:
         assert len(config.profiles) == 1
         profile = config.profiles[0]
         assert profile.app_name == "global"
-        assert GestureDirection.UP in profile.gesture_mappings
+        assert InputIdentifier.GESTURE_UP in profile.mappings
         assert (
-            profile.gesture_mappings[GestureDirection.UP].payload
+            profile.mappings[InputIdentifier.GESTURE_UP].payload
             == "swaymsg workspace next"
         )
 
@@ -104,11 +102,10 @@ class TestParseGestures:
         config = parse_config(config_file)
 
         profile = config.profiles[0]
-        assert len(profile.gesture_mappings) == 4
-        assert GestureDirection.UP in profile.gesture_mappings
-        assert GestureDirection.DOWN in profile.gesture_mappings
-        assert GestureDirection.LEFT in profile.gesture_mappings
-        assert GestureDirection.RIGHT in profile.gesture_mappings
+        assert InputIdentifier.GESTURE_UP in profile.mappings
+        assert InputIdentifier.GESTURE_DOWN in profile.mappings
+        assert InputIdentifier.GESTURE_LEFT in profile.mappings
+        assert InputIdentifier.GESTURE_RIGHT in profile.mappings
 
 
 class TestValidateGestures:
@@ -180,20 +177,19 @@ class TestResolveGestureActions:
         """Test resolving action for a gesture event."""
         profile = Profile(
             app_name="firefox",
-            mappings={},
-            gesture_mappings={
-                GestureDirection.LEFT: Action(
+            mappings={
+                InputIdentifier.GESTURE_LEFT: Action(
                     action_type=ActionType.KEYBOARD,
                     payload="alt+left",
                 ),
             },
         )
-        gesture = Gesture(direction=GestureDirection.LEFT)
+        event = UserInput(identifier=InputIdentifier.GESTURE_LEFT)
         window_info = WindowInfo(
             application=Application(app_name="firefox"),
             window=Window(title="Test"),
         )
-        context = DispatchContext(event=gesture, window_info=window_info)
+        context = DispatchContext(event=event, window_info=window_info)
 
         action = resolve_action(context, profile)
 
@@ -205,14 +201,13 @@ class TestResolveGestureActions:
         profile = Profile(
             app_name="firefox",
             mappings={},
-            gesture_mappings={},
         )
-        gesture = Gesture(direction=GestureDirection.LEFT)
+        event = UserInput(identifier=InputIdentifier.GESTURE_LEFT)
         window_info = WindowInfo(
             application=Application(app_name="firefox"),
             window=Window(title="Test"),
         )
-        context = DispatchContext(event=gesture, window_info=window_info)
+        context = DispatchContext(event=event, window_info=window_info)
 
         action = resolve_action(context, profile)
 
@@ -222,20 +217,19 @@ class TestResolveGestureActions:
         """Test resolving gesture with global profile."""
         profile = Profile(
             app_name="global",
-            mappings={},
-            gesture_mappings={
-                GestureDirection.UP: Action(
+            mappings={
+                InputIdentifier.GESTURE_UP: Action(
                     action_type=ActionType.COMMAND,
                     payload="swaymsg workspace next",
                 ),
             },
         )
-        gesture = Gesture(direction=GestureDirection.UP)
+        event = UserInput(identifier=InputIdentifier.GESTURE_UP)
         window_info = WindowInfo(
             application=Application(app_name="firefox"),
             window=Window(title="Test"),
         )
-        context = DispatchContext(event=gesture, window_info=window_info)
+        context = DispatchContext(event=event, window_info=window_info)
 
         action = resolve_action(context, profile)
 
@@ -247,14 +241,13 @@ class TestResolveGestureActions:
         profile = Profile(
             app_name="firefox",
             mappings={
-                "BTN_SIDE": Action(
+                InputIdentifier.BTN_SIDE: Action(
                     action_type=ActionType.KEYBOARD,
                     payload="alt+left",
                 ),
             },
-            gesture_mappings={},
         )
-        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        event = UserInput(identifier=InputIdentifier.BTN_SIDE)
         window_info = WindowInfo(
             application=Application(app_name="firefox"),
             window=Window(title="Test"),
@@ -285,8 +278,7 @@ class TestBackwardCompatibility:
         assert len(config.profiles) == 1
         profile = config.profiles[0]
         assert profile.app_name == "firefox"
-        assert len(profile.gesture_mappings) == 0
-        assert "BTN_SIDE" in profile.mappings
+        assert InputIdentifier.BTN_SIDE in profile.mappings
 
     def test_global_without_gestures(self, tmp_path: Path) -> None:
         """Test that global config without gestures still works."""
@@ -300,4 +292,3 @@ class TestBackwardCompatibility:
         assert len(config.profiles) == 1
         profile = config.profiles[0]
         assert profile.app_name == "global"
-        assert len(profile.gesture_mappings) == 0

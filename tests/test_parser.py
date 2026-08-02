@@ -4,7 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from mouseflow.domain import GLOBAL_PROFILE_NAME, ActionType, Configuration
+from mouseflow.domain import (
+    GLOBAL_PROFILE_NAME,
+    ActionType,
+    Configuration,
+    InputIdentifier,
+)
 from mouseflow.parser import (
     ConfigurationError,
     ValidationError,
@@ -29,7 +34,7 @@ class TestParseConfig:
 
         assert len(config.profiles) == 1
         assert config.profiles[0].app_name == "firefox"
-        assert "BTN_SIDE" in config.profiles[0].mappings
+        assert InputIdentifier.BTN_SIDE in config.profiles[0].mappings
 
     def test_parse_missing_config_file(self, tmp_path: Path) -> None:
         """Test parsing when configuration file does not exist."""
@@ -172,7 +177,7 @@ class TestTranslateConfig:
         )
 
         config = parse_config(config_file)
-        action = config.profiles[0].mappings["BTN_SIDE"]
+        action = config.profiles[0].mappings[InputIdentifier.BTN_SIDE]
 
         assert action.action_type == ActionType.KEYBOARD
         assert action.payload == "alt+left"
@@ -190,7 +195,7 @@ class TestTranslateConfig:
         )
 
         config = parse_config(config_file)
-        action = config.profiles[0].mappings["BTN_EXTRA"]
+        action = config.profiles[0].mappings[InputIdentifier.BTN_EXTRA]
 
         assert action.action_type == ActionType.COMMAND
         assert action.payload == "swaymsg workspace 1"
@@ -240,7 +245,7 @@ class TestGlobalProfileParsing:
         global_profile = config.get_global_profile()
         assert global_profile is not None
         assert global_profile.app_name == GLOBAL_PROFILE_NAME
-        assert "BTN_SIDE" in global_profile.mappings
+        assert InputIdentifier.BTN_SIDE in global_profile.mappings
 
     def test_parse_global_profile_only(self, tmp_path: Path) -> None:
         config_file = tmp_path / "config.yaml"
@@ -297,7 +302,7 @@ class TestGlobalProfileParsing:
 
         global_profile = config.get_global_profile()
         assert global_profile is not None
-        action = global_profile.mappings["BTN_EXTRA"]
+        action = global_profile.mappings[InputIdentifier.BTN_EXTRA]
         assert action.action_type == ActionType.COMMAND
         assert action.payload == "swaymsg workspace next"
 
