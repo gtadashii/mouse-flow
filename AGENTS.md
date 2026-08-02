@@ -84,12 +84,7 @@ The domain model is the public API of the project. Components communicate by exc
 - Domain objects are immutable by default.
 - Prefer explicit modeling over clever abstractions.
 
-## Example
-
-```
-Infrastructure (evdev) → MouseEvent → Domain → Dispatcher → Action
-Infrastructure (i3ipc) → WindowInfo → Domain → Dispatcher → Action
-```
+See `docs/architecture.md` for the complete list of domain objects and their relationships.
 
 ---
 
@@ -97,82 +92,7 @@ Infrastructure (i3ipc) → WindowInfo → Domain → Dispatcher → Action
 
 Each component has clear responsibilities. Mixing concerns is not allowed.
 
-## Device Discovery
-
-**Responsible for:**
-- Detecting supported mouse devices
-- Selecting the appropriate device
-
-**Not responsible for:**
-- Reading input events
-- Window detection
-
-## Input Engine
-
-**Responsible for:**
-- Receiving raw input events continuously
-- Converting hardware events into domain objects
-
-**Not responsible for:**
-- Event routing or interpretation
-- Action execution
-- Window detection
-
-## Window Resolver
-
-**Responsible for:**
-- Identifying the currently focused window
-- Converting compositor data into domain objects
-
-**Not responsible for:**
-- Mouse event processing
-- Event routing
-- Action execution
-
-## Domain Model
-
-**Responsible for:**
-- Representing core business concepts (MouseEvent, WindowInfo, Action, Profile, etc.)
-- Defining the application's ubiquitous language
-- Exposing stable objects shared by other modules
-
-**Not responsible for:**
-- Reading hardware events
-- Communicating with the compositor
-- Executing actions
-- Loading configuration
-
-## Event Dispatcher
-
-**Responsible for:**
-- Combining mouse events with window information
-- Determining which action applies to the current context
-
-**Not responsible for:**
-- Loading configuration
-- Executing actions
-- Hardware interaction
-
-## Configuration Loader
-
-**Responsible for:**
-- Reading user configuration files
-- Converting configuration into domain objects
-
-**Not responsible for:**
-- Event processing
-- Action execution
-- Hardware interaction
-
-## Action Runner
-
-**Responsible for:**
-- Executing actions (keyboard shortcuts, commands, etc.)
-
-**Not responsible for:**
-- Event routing
-- Configuration loading
-- Hardware interaction
+See `docs/architecture.md` for detailed component descriptions, data flow, and dependency graph.
 
 ---
 

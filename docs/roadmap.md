@@ -10,22 +10,6 @@ The roadmap represents the expected evolution of the project but may change as n
 
 ---
 
-# Development Strategy
-
-Each sprint should satisfy the following principles:
-
-- Deliver one meaningful capability.
-- Keep changes small and testable.
-- Avoid unnecessary abstractions.
-- Build on top of previous iterations.
-- Leave the project in a releasable state.
-
-Development follows Specification Driven Development (SDD):
-
-PRD → Specification → Implementation → Tests → Review
-
----
-
 # Roadmap
 
 ## Phase 0 — Bootstrap
@@ -302,20 +286,6 @@ plugins/
 spotify.py
 
 obsidian.py
-
----
-
-# Guiding Principles
-
-The project values:
-
-- readability over cleverness
-- composition over inheritance
-- explicit code over magic
-- standard library when possible
-- testability
-- small pull requests
-- long-term maintainability
 
 ---
 
