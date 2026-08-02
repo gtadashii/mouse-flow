@@ -175,6 +175,7 @@ source = { editable = "." }
 dependencies = [
     { name = "evdev" },
     { name = "i3ipc" },
+    { name = "pyyaml" },
 ]
 
 [package.optional-dependencies]
@@ -192,6 +193,7 @@ requires-dist = [
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
 ]
 provides-extras = ["dev"]

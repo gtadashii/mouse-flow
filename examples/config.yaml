@@ -1,0 +1,21 @@
+profiles:
+  - app_name: firefox
+    mappings:
+      BTN_SIDE:
+        type: keyboard
+        payload: alt+left
+      BTN_EXTRA:
+        type: keyboard
+        payload: alt+right
+      REL_HWHEEL:
+        type: command
+        payload: swaymsg workspace next
+
+  - app_name: vscode
+    mappings:
+      BTN_SIDE:
+        type: keyboard
+        payload: ctrl+shift+p
+      BTN_EXTRA:
+        type: keyboard
+        payload: ctrl+p

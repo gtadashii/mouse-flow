@@ -1,0 +1,136 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from mouseflow.domain import Action, ActionType, DispatchContext, EventType, Profile
+
+
+class ConfigurationError(Exception):
+    pass
+
+
+class ValidationError(ConfigurationError):
+    pass
+
+
+def load_config(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        raise ConfigurationError(f"Configuration file not found: {path}")
+
+    content = path.read_text()
+    if not content.strip():
+        raise ConfigurationError("Configuration file is empty")
+
+    data = yaml.safe_load(content)
+    if data is None:
+        raise ConfigurationError("Configuration file is empty")
+
+    if not isinstance(data, dict):
+        raise ConfigurationError("Configuration file must contain a mapping")
+
+    return data
+
+
+def validate_config(data: dict[str, Any]) -> None:
+    if "profiles" not in data:
+        raise ValidationError("Missing required field: profiles")
+
+    profiles = data["profiles"]
+    if not isinstance(profiles, list):
+        raise ValidationError("profiles must be a list")
+
+    for i, profile in enumerate(profiles):
+        if not isinstance(profile, dict):
+            raise ValidationError(f"Profile {i} must be a mapping")
+
+        if "app_name" not in profile:
+            raise ValidationError(f"Profile {i} missing required field: app_name")
+
+        if "mappings" not in profile:
+            raise ValidationError(f"Profile {i} missing required field: mappings")
+
+        mappings = profile["mappings"]
+        if not isinstance(mappings, dict):
+            raise ValidationError(f"Profile {i} mappings must be a mapping")
+
+        for event_key, action in mappings.items():
+            if not isinstance(action, dict):
+                raise ValidationError(
+                    f"Mapping {event_key} in profile {i} must be a mapping",
+                )
+
+            if "type" not in action:
+                raise ValidationError(
+                    f"Mapping {event_key} in profile {i} missing required field: type",
+                )
+
+            if "payload" not in action:
+                msg = (
+                    f"Mapping {event_key} in profile {i} "
+                    "missing required field: payload"
+                )
+                raise ValidationError(msg)
+
+            action_type = action["type"]
+            if action_type not in ("keyboard", "command"):
+                msg = (
+                    f"Mapping {event_key} in profile {i} "
+                    f"has invalid action type: {action_type}"
+                )
+                raise ValidationError(msg)
+
+
+def translate_config(data: dict[str, Any]) -> list[Profile]:
+    profiles: list[Profile] = []
+
+    for profile_data in data["profiles"]:
+        mappings: dict[str, Action] = {}
+
+        for event_key, action_data in profile_data["mappings"].items():
+            action_type_str = action_data["type"]
+            action_type = (
+                ActionType.KEYBOARD
+                if action_type_str == "keyboard"
+                else ActionType.COMMAND
+            )
+            mappings[event_key] = Action(
+                action_type=action_type,
+                payload=action_data["payload"],
+            )
+
+        profiles.append(
+            Profile(app_name=profile_data["app_name"], mappings=mappings),
+        )
+
+    return profiles
+
+
+def resolve_action(
+    context: DispatchContext,
+    profiles: list[Profile],
+) -> Action | None:
+    if context.window_info is None:
+        return None
+
+    app_name = context.window_info.application.app_name
+    event = context.event
+
+    if event.event_type == EventType.BUTTON:
+        if event.button is None:
+            return None
+        event_key = event.button.value
+    elif event.event_type == EventType.WHEEL:
+        if event.wheel is None:
+            return None
+        event_key = event.wheel.value
+    else:
+        return None
+
+    for profile in profiles:
+        if profile.app_name == app_name:
+            return profile.mappings.get(event_key)
+
+    return None
