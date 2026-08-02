@@ -31,15 +31,10 @@ This architecture ensures:
           │
           ▼
 ┌─────────────────┐
-│  Input Engine   │ ← Converts raw events to MouseEvent
+│  Input Engine   │ ← Converts raw events to MouseEvent/Gesture
+│                 │   (includes GestureRecognizer)
 └────────┬────────┘
-          │ MouseEvent
-          ▼
-┌─────────────────┐
-│    Window       │ ← Resolves focused window
-│   Resolver      │
-└────────┬────────┘
-          │ WindowInfo
+          │ MouseEvent | Gesture
           ▼
 ┌─────────────────┐
 │     Event       │ ← Combines event + window context
@@ -156,6 +151,34 @@ The Configuration Parser is the only component that knows about the YAML format.
 
 ---
 
+### Gesture Recognizer
+
+**Responsibility:** Recognize directional mouse gestures performed while holding a gesture button.
+
+**Input:**
+- `MouseEvent` objects from Input Engine (button press/release)
+- Movement deltas (REL_X, REL_Y) from Input Engine
+
+**Output:** `Gesture | None` - recognized gesture or None if no gesture
+
+**Key behaviors:**
+- Activates gesture mode when gesture button (BTN_EXTRA) is pressed
+- Tracks cumulative mouse movement while gesture mode is active
+- Recognizes directional gestures (UP, DOWN, LEFT, RIGHT) based on movement thresholds
+- Produces Gesture domain object when gesture button is released with sufficient movement
+- Resets state when gesture button is released
+- Uses threshold-based algorithm (50 pixels) to prevent accidental triggers
+
+**Not responsible for:**
+- Loading configuration
+- Executing actions
+- Window resolution
+- Event dispatching
+
+**Implementation:** `src/mouseflow/gesture.py`
+
+---
+
 ### Window Resolver
 
 **Responsibility:** Identify the currently focused window and extract application/title information.
@@ -216,12 +239,14 @@ The Configuration Parser is the only component that knows about the YAML format.
 
 **Key objects:**
 - `MouseEvent` - mouse button press or wheel scroll
+- `Gesture` - directional gesture (UP, DOWN, LEFT, RIGHT)
+- `GestureDirection` - enum of gesture directions
 - `Application` - active application name
 - `Window` - window title
 - `WindowInfo` - aggregates Application + Window
-- `DispatchContext` - combines MouseEvent + WindowInfo
+- `DispatchContext` - combines MouseEvent/Gesture + WindowInfo
 - `Action` - executable action (keyboard shortcut or command)
-- `Profile` - application-specific action mappings
+- `Profile` - application-specific action and gesture mappings
 - `Configuration` - collection of profiles loaded at startup
 
 **Key behaviors:**

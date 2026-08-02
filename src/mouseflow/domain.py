@@ -24,6 +24,13 @@ class WheelAxis(Enum):
     REL_WHEEL = "REL_WHEEL"
 
 
+class GestureDirection(Enum):
+    UP = "UP"
+    DOWN = "DOWN"
+    LEFT = "LEFT"
+    RIGHT = "RIGHT"
+
+
 class EventType(Enum):
     BUTTON = "BUTTON"
     WHEEL = "WHEEL"
@@ -54,6 +61,11 @@ class MouseEvent:
 
 
 @dataclass(frozen=True)
+class Gesture:
+    direction: GestureDirection
+
+
+@dataclass(frozen=True)
 class Application:
     app_name: str = "Unknown"
 
@@ -71,7 +83,7 @@ class WindowInfo:
 
 @dataclass(frozen=True)
 class DispatchContext:
-    event: MouseEvent
+    event: MouseEvent | Gesture
     window_info: WindowInfo | None = None
 
 
@@ -98,9 +110,11 @@ def command_action(cmd: str) -> Action:
 class Profile:
     app_name: str
     mappings: dict[str, Action] = field(default_factory=dict)
+    gesture_mappings: dict[GestureDirection, Action] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "mappings", dict(self.mappings))
+        object.__setattr__(self, "gesture_mappings", dict(self.gesture_mappings))
 
 
 @dataclass(frozen=True)

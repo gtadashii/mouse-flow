@@ -46,13 +46,13 @@ class TestIsSupportedEvent:
         event = _make_event(ecodes.EV_KEY, ecodes.BTN_RIGHT)
         assert is_supported_event(event) is False
 
-    def test_rel_x_is_not_supported(self) -> None:
+    def test_rel_x_is_supported(self) -> None:
         event = _make_event(ecodes.EV_REL, ecodes.REL_X)
-        assert is_supported_event(event) is False
+        assert is_supported_event(event) is True
 
-    def test_rel_y_is_not_supported(self) -> None:
+    def test_rel_y_is_supported(self) -> None:
         event = _make_event(ecodes.EV_REL, ecodes.REL_Y)
-        assert is_supported_event(event) is False
+        assert is_supported_event(event) is True
 
     def test_unknown_event_type_is_not_supported(self) -> None:
         event = _make_event(0xFF, 0x00)

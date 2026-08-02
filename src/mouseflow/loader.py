@@ -4,6 +4,7 @@ from mouseflow.domain import (
     Action,
     DispatchContext,
     EventType,
+    Gesture,
     MouseEvent,
     Profile,
 )
@@ -16,10 +17,11 @@ def resolve_action(
     if profile is None:
         return None
 
+    if isinstance(context.event, Gesture):
+        return profile.gesture_mappings.get(context.event.direction)
     event_key = _extract_event_key(context.event)
     if event_key is None:
         return None
-
     return profile.mappings.get(event_key)
 
 

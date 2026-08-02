@@ -43,7 +43,7 @@ class TestParseConfig:
         config_file = tmp_path / "config.yaml"
         config_file.write_text("")
 
-        with pytest.raises(ConfigurationError, match="empty"):
+        with pytest.raises(ValidationError, match="Missing required field"):
             parse_config(config_file)
 
 

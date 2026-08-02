@@ -4,7 +4,13 @@ from unittest.mock import MagicMock, patch
 
 from evdev import ecodes
 
-from mouseflow.domain import Application, DispatchContext, Window, WindowInfo
+from mouseflow.domain import (
+    Application,
+    DispatchContext,
+    MouseEvent,
+    Window,
+    WindowInfo,
+)
 from mouseflow.engine import read_events
 
 
@@ -36,6 +42,7 @@ class TestPipelineIntegration:
         assert len(events) == 1
 
         context = DispatchContext(event=events[0], window_info=window_info)
+        assert isinstance(context.event, MouseEvent)
         assert context.event.button is not None
         assert context.event.button.value == "BTN_SIDE"
         assert context.window_info is not None
@@ -67,10 +74,13 @@ class TestPipelineIntegration:
         ]
 
         assert len(contexts) == 3
+        assert isinstance(contexts[0].event, MouseEvent)
         assert contexts[0].event.button is not None
         assert contexts[0].event.button.value == "BTN_SIDE"
+        assert isinstance(contexts[1].event, MouseEvent)
         assert contexts[1].event.button is not None
         assert contexts[1].event.button.value == "BTN_EXTRA"
+        assert isinstance(contexts[2].event, MouseEvent)
         assert contexts[2].event.wheel is not None
         assert contexts[2].event.wheel.value == "REL_HWHEEL"
 
@@ -91,6 +101,7 @@ class TestPipelineIntegration:
         assert len(events) == 1
 
         context = DispatchContext(event=events[0], window_info=None)
+        assert isinstance(context.event, MouseEvent)
         assert context.event.button is not None
         assert context.event.button.value == "BTN_SIDE"
         assert context.window_info is None

@@ -6,6 +6,14 @@ global:
     type: keyboard
     payload: alt+right
 
+global_gestures:
+  UP:
+    type: command
+    payload: swaymsg workspace next
+  DOWN:
+    type: command
+    payload: swaymsg workspace prev
+
 profiles:
   - app_name: firefox
     mappings:
@@ -18,6 +26,13 @@ profiles:
       REL_HWHEEL:
         type: command
         payload: swaymsg workspace next
+    gestures:
+      LEFT:
+        type: keyboard
+        payload: alt+left
+      RIGHT:
+        type: keyboard
+        payload: alt+right
 
   - app_name: vscode
     mappings:
@@ -27,3 +42,10 @@ profiles:
       BTN_EXTRA:
         type: keyboard
         payload: ctrl+p
+    gestures:
+      UP:
+        type: keyboard
+        payload: ctrl+shift+n
+      DOWN:
+        type: keyboard
+        payload: ctrl+shift+t

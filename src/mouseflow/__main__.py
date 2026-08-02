@@ -2,7 +2,7 @@ import sys
 
 from mouseflow.discovery import find_supported_device, format_found, format_not_found
 from mouseflow.dispatcher import EventDispatcher, format_dispatch_context
-from mouseflow.engine import read_events
+from mouseflow.engine import read_events_with_gestures
 from mouseflow.loader import resolve_action
 from mouseflow.parser import parse_config
 from mouseflow.profile_resolver import DefaultProfileResolver
@@ -23,7 +23,7 @@ def main() -> None:
     dispatcher = EventDispatcher(resolver)
     profile_resolver = DefaultProfileResolver()
 
-    for context in dispatcher.dispatch(read_events(device.path)):
+    for context in dispatcher.dispatch(read_events_with_gestures(device.path)):
         profile = profile_resolver.resolve(config, context.window_info)
         print(format_dispatch_context(context, profile))
 

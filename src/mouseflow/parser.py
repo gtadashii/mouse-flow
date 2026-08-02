@@ -6,10 +6,10 @@ from typing import Any
 import yaml
 
 from mouseflow.domain import (
-    GLOBAL_PROFILE_NAME,
     Action,
     ActionType,
     Configuration,
+    GestureDirection,
     Profile,
 )
 
@@ -33,21 +33,76 @@ def parse_config(path: Path | None = None) -> Configuration:
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        raise ConfigurationError(f"Configuration file not found: {path}")
+    try:
+        with path.open() as f:
+            data = yaml.safe_load(f)
+            if data is None:
+                return {}
+            return data  # type: ignore[no-any-return]
+    except FileNotFoundError as e:
+        raise ConfigurationError(f"Configuration file not found: {path}") from e
+    except yaml.YAMLError as e:
+        raise ConfigurationError(f"Invalid YAML in configuration file: {e}") from e
 
-    content = path.read_text()
-    if not content.strip():
-        raise ConfigurationError("Configuration file is empty")
 
-    data = yaml.safe_load(content)
-    if data is None:
-        raise ConfigurationError("Configuration file is empty")
+def _validate_structure(data: dict[str, Any]) -> None:
+    if "profiles" not in data and "global" not in data:
+        raise ValidationError("Missing required field: profiles or global")
 
-    if not isinstance(data, dict):
-        raise ConfigurationError("Configuration file must contain a mapping")
+    if "profiles" in data:
+        profiles = data["profiles"]
+        if not isinstance(profiles, list):
+            raise ValidationError("profiles must be a list")
 
-    return data
+        for i, profile in enumerate(profiles):
+            if not isinstance(profile, dict):
+                raise ValidationError(f"Profile {i} must be a mapping")
+
+            if "app_name" not in profile:
+                raise ValidationError(f"Profile {i} missing required field: app_name")
+
+            app_name = profile["app_name"]
+            if app_name == "global":
+                raise ValidationError(
+                    f"Profile {i} cannot use reserved name 'global'. "
+                    "Use 'global:' key at top level instead.",
+                )
+
+            if "mappings" not in profile:
+                raise ValidationError(f"Profile {i} missing required field: mappings")
+
+            mappings = profile["mappings"]
+            if not isinstance(mappings, dict):
+                raise ValidationError(f"Profile {i} mappings must be a mapping")
+
+            for event_key, action in mappings.items():
+                _validate_action_mapping(event_key, action, f"profile {i}")
+
+            # Validate gestures section if present
+            if "gestures" in profile:
+                gestures = profile["gestures"]
+                if not isinstance(gestures, dict):
+                    raise ValidationError(f"Profile {i} gestures must be a mapping")
+
+                for direction, action in gestures.items():
+                    _validate_gesture_mapping(direction, action, f"profile {i}")
+
+    if "global" in data:
+        global_mappings = data["global"]
+        if not isinstance(global_mappings, dict):
+            raise ValidationError("global must be a mapping")
+
+        for event_key, action in global_mappings.items():
+            _validate_action_mapping(event_key, action, "global")
+
+        # Validate global gestures section if present
+        if "global_gestures" in data:
+            global_gestures = data["global_gestures"]
+            if not isinstance(global_gestures, dict):
+                raise ValidationError("global_gestures must be a mapping")
+
+            for direction, action in global_gestures.items():
+                _validate_gesture_mapping(direction, action, "global")
 
 
 def _validate_action_mapping(
@@ -75,61 +130,48 @@ def _validate_action_mapping(
         )
 
 
-def _validate_structure(data: dict[str, Any]) -> None:
-    if "profiles" not in data and "global" not in data:
-        raise ValidationError("Missing required field: profiles or global")
+def _validate_gesture_mapping(
+    direction: str,
+    action: Any,
+    context: str,
+) -> None:
+    # Validate direction
+    valid_directions = {"UP", "DOWN", "LEFT", "RIGHT"}
+    if direction not in valid_directions:
+        raise ValidationError(
+            f"Gesture {direction} in {context} is invalid. "
+            f"Must be one of: {', '.join(sorted(valid_directions))}",
+        )
 
-    if "profiles" in data:
-        profiles = data["profiles"]
-        if not isinstance(profiles, list):
-            raise ValidationError("profiles must be a list")
-
-        for i, profile in enumerate(profiles):
-            if not isinstance(profile, dict):
-                raise ValidationError(f"Profile {i} must be a mapping")
-
-            if "app_name" not in profile:
-                raise ValidationError(f"Profile {i} missing required field: app_name")
-
-            app_name = profile["app_name"]
-            if app_name == GLOBAL_PROFILE_NAME:
-                raise ValidationError(
-                    f"Profile {i} cannot use reserved name '{GLOBAL_PROFILE_NAME}'. "
-                    "Use 'global:' key at top level instead.",
-                )
-
-            if "mappings" not in profile:
-                raise ValidationError(f"Profile {i} missing required field: mappings")
-
-            mappings = profile["mappings"]
-            if not isinstance(mappings, dict):
-                raise ValidationError(f"Profile {i} mappings must be a mapping")
-
-            for event_key, action in mappings.items():
-                _validate_action_mapping(event_key, action, f"profile {i}")
-
-    if "global" in data:
-        global_mappings = data["global"]
-        if not isinstance(global_mappings, dict):
-            raise ValidationError("global must be a mapping")
-
-        for event_key, action in global_mappings.items():
-            _validate_action_mapping(event_key, action, "global")
+    # Validate action
+    _validate_action_mapping(direction, action, context)
 
 
 def _translate_to_domain(data: dict[str, Any]) -> Configuration:
     profiles: list[Profile] = []
 
-    if "global" in data:
-        global_mappings = _parse_mappings(data["global"])
-        profiles.append(Profile(app_name=GLOBAL_PROFILE_NAME, mappings=global_mappings))
-
     if "profiles" in data:
         for profile_data in data["profiles"]:
-            mappings = _parse_mappings(profile_data["mappings"])
+            mappings = _parse_mappings(profile_data.get("mappings", {}))
+            gesture_mappings = _parse_gesture_mappings(profile_data.get("gestures", {}))
             profiles.append(
-                Profile(app_name=profile_data["app_name"], mappings=mappings),
+                Profile(
+                    app_name=profile_data["app_name"],
+                    mappings=mappings,
+                    gesture_mappings=gesture_mappings,
+                ),
             )
+
+    if "global" in data:
+        mappings = _parse_mappings(data["global"])
+        gesture_mappings = _parse_gesture_mappings(data.get("global_gestures", {}))
+        profiles.append(
+            Profile(
+                app_name="global",
+                mappings=mappings,
+                gesture_mappings=gesture_mappings,
+            ),
+        )
 
     return Configuration(profiles=tuple(profiles))
 
@@ -146,3 +188,20 @@ def _parse_mappings(mappings_data: dict[str, Any]) -> dict[str, Action]:
             payload=action_data["payload"],
         )
     return mappings
+
+
+def _parse_gesture_mappings(
+    gestures_data: dict[str, Any],
+) -> dict[GestureDirection, Action]:
+    gesture_mappings: dict[GestureDirection, Action] = {}
+    for direction_str, action_data in gestures_data.items():
+        direction = GestureDirection[direction_str]
+        action_type_str = action_data["type"]
+        action_type = (
+            ActionType.KEYBOARD if action_type_str == "keyboard" else ActionType.COMMAND
+        )
+        gesture_mappings[direction] = Action(
+            action_type=action_type,
+            payload=action_data["payload"],
+        )
+    return gesture_mappings
