@@ -2,6 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Protocol
+
+
+class ExecutionStatus(Enum):
+    SUCCESS = "SUCCESS"
+    FAILURE = "FAILURE"
 
 
 class MouseButton(Enum):
@@ -104,3 +110,14 @@ class Configuration:
             if profile.app_name == app_name:
                 return profile
         return None
+
+
+@dataclass(frozen=True)
+class ExecutionResult:
+    action: Action
+    status: ExecutionStatus
+    error_message: str | None = None
+
+
+class ActionExecutor(Protocol):
+    def execute(self, action: Action) -> ExecutionResult: ...

@@ -23,38 +23,52 @@ This architecture ensures:
 │  Raw Device     │
 │  Event (evdev)  │
 └────────┬────────┘
-         │
-         ▼
+          │
+          ▼
 ┌─────────────────┐
 │ Device Discovery│ ← Selects supported mouse device
 └────────┬────────┘
-         │
-         ▼
+          │
+          ▼
 ┌─────────────────┐
 │  Input Engine   │ ← Converts raw events to MouseEvent
 └────────┬────────┘
-         │ MouseEvent
-         ▼
+          │ MouseEvent
+          ▼
 ┌─────────────────┐
 │    Window       │ ← Resolves focused window
 │   Resolver      │
 └────────┬────────┘
-         │ WindowInfo
-         ▼
+          │ WindowInfo
+          ▼
 ┌─────────────────┐
 │     Event       │ ← Combines event + window context
 │   Dispatcher    │
 └────────┬────────┘
-         │ DispatchContext
-         ▼
+          │ DispatchContext
+          ▼
 ┌─────────────────┐
 │ Configuration   │ ← Resolves action from Configuration
 │    Loader       │
 └────────┬────────┘
-         │ Action | None
-         ▼
+          │ Action
+          ▼
 ┌─────────────────┐
-│  Action Runner  │ ← Executes actions (future)
+│  Action Runner  │ ← Orchestrates action execution
+│                 │
+│  ┌───────────┐  │
+│  │ Keyboard  │  │
+│  │  Adapter  │  │
+│  └───────────┘  │
+│  ┌───────────┐  │
+│  │   Shell   │  │
+│  │  Adapter  │  │
+│  └───────────┘  │
+└────────┬────────┘
+          │ ExecutionResult
+          ▼
+┌─────────────────┐
+│    Reporting    │ ← Formats and displays results
 └─────────────────┘
 ```
 
@@ -270,25 +284,50 @@ The Configuration Parser is the only component that knows about the YAML format.
 
 ---
 
-### Action Runner (Future)
+### Action Runner
 
-**Responsibility:** Execute actions (keyboard shortcuts, shell commands).
+**Responsibility:** Execute actions using a ports and adapters pattern.
 
 **Input:** `Action` domain object
 
-**Output:** Side effects (key presses, command execution)
+**Output:** `ExecutionResult` domain object
 
 **Key behaviors:**
-- Interprets action type (keyboard vs command)
-- Executes appropriate system call
-- Handles execution failures
+- Orchestrates action execution through specialized adapters
+- Dispatches to appropriate adapter based on action type
+- Handles unknown action types gracefully
+- Returns execution results with status and error information
+
+**Architecture:**
+The Action Runner uses a **ports and adapters** (hexagonal) pattern:
+
+```
+Action
+  │
+  ▼
+Action Runner (Orchestrator)
+  │
+  ├──▶ KeyboardAdapter (Port: ActionExecutor)
+  │         │
+  │         ▼
+  │    pynput (Infrastructure)
+  │
+  └──▶ ShellAdapter (Port: ActionExecutor)
+            │
+            ▼
+       subprocess (Infrastructure)
+```
+
+- **Port:** `ActionExecutor` protocol defines the contract for action execution
+- **Adapters:** `KeyboardAdapter` and `ShellAdapter` implement the protocol
+- **Orchestrator:** `ActionRunner` dispatches to the appropriate adapter
 
 **Not responsible for:**
 - Event routing
 - Configuration loading
-- Hardware interaction
+- Hardware interaction (delegated to adapters)
 
-**Implementation:** Not yet implemented (Sprint 7)
+**Implementation:** `src/mouseflow/runner.py`
 
 ---
 
@@ -337,6 +376,15 @@ class Profile:
 @dataclass(frozen=True)
 class Configuration:
     profiles: tuple[Profile, ...]  # Immutable collection of profiles
+
+@dataclass(frozen=True)
+class ExecutionResult:
+    action: Action
+    status: ExecutionStatus  # SUCCESS or FAILURE
+    error_message: str | None = None
+
+class ActionExecutor(Protocol):
+    def execute(self, action: Action) -> ExecutionResult: ...
 ```
 
 ### Design Principles
@@ -366,7 +414,8 @@ When the user presses BTN_SIDE in Firefox:
 3. **Event Dispatcher** calls `resolver.resolve()` → gets `WindowInfo(app="firefox", title="ChatGPT")`
 4. **Event Dispatcher** yields `DispatchContext(event=..., window_info=...)`
 5. **Configuration Loader** looks up Profile for "firefox" in Configuration → finds mapping for BTN_SIDE
-6. **Action Runner** (future) executes `Action(type=KEYBOARD, payload="alt+left")`
+6. **Action Runner** dispatches to `KeyboardAdapter` → executes `Action(type=KEYBOARD, payload="alt+left")`
+7. **Action Runner** returns `ExecutionResult(action=..., status=SUCCESS)`
 
 Each step receives domain objects and produces domain objects. Infrastructure is confined to the edges.
 
@@ -431,16 +480,96 @@ mouseflow/
 ├── resolver.py        # Depends on: i3ipc, domain
 ├── dispatcher.py      # Depends on: domain, resolver (protocol)
 ├── parser.py          # Depends on: yaml, domain
-└── loader.py          # Depends on: domain
+├── loader.py          # Depends on: domain
+└── runner.py          # Depends on: domain, pynput, subprocess
 ```
 
 **Key observations:**
 - `domain.py` has no dependencies (pure Python)
-- Infrastructure libraries (evdev, i3ipc, yaml) are confined to specific modules
+- Infrastructure libraries (evdev, i3ipc, yaml, pynput) are confined to specific modules
 - `dispatcher.py` depends on resolver protocol, not implementation
 - `parser.py` is the only module that knows about YAML
 - `loader.py` depends only on domain objects, not on file formats
+- `runner.py` uses ports and adapters pattern: ActionRunner depends on ActionExecutor protocol, not concrete adapters
 - No circular dependencies
+
+---
+
+## Ports and Adapters Pattern
+
+The Action Runner implements the **ports and adapters** (hexagonal) architecture pattern to separate orchestration from infrastructure concerns.
+
+### Pattern Overview
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Domain Layer                          │
+│  ┌─────────────┐                                       │
+│  │   Action    │                                       │
+│  └──────┬──────┘                                       │
+│         │                                               │
+│         ▼                                               │
+│  ┌─────────────────┐                                   │
+│  │  ActionExecutor │ ← Port (Protocol)                 │
+│  │    (Protocol)   │                                   │
+│  └────────┬────────┘                                   │
+│           │                                             │
+└───────────┼─────────────────────────────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────────────────────────────┐
+│               Application Layer                          │
+│  ┌─────────────────┐                                   │
+│  │  ActionRunner   │ ← Orchestrator                    │
+│  │                 │                                   │
+│  │  - Dispatches   │                                   │
+│  │  - Delegates    │                                   │
+│  └────────┬────────┘                                   │
+│           │                                             │
+└───────────┼─────────────────────────────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────────────────────────────┐
+│               Infrastructure Layer                       │
+│  ┌─────────────────┐    ┌─────────────────┐            │
+│  │ KeyboardAdapter │    │  ShellAdapter   │            │
+│  │                 │    │                 │            │
+│  │  - pynput       │    │  - subprocess   │            │
+│  │  - key mapping  │    │  - timeout      │            │
+│  └─────────────────┘    └─────────────────┘            │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Benefits
+
+1. **Separation of Concerns:** Orchestrator (ActionRunner) doesn't know about infrastructure details
+2. **Testability:** Adapters can be mocked independently
+3. **Extensibility:** New action types (mouse gestures, window management) can be added as new adapters
+4. **Consistency:** Follows the same pattern as WindowResolver (protocol-based dependency inversion)
+
+### Adding New Action Types
+
+To add a new action type:
+
+1. Define the action type in `ActionType` enum (domain.py)
+2. Create a new adapter implementing `ActionExecutor` protocol
+3. Register the adapter in `ActionRunner.create_default()`
+
+Example:
+```python
+# New adapter
+class MouseAdapter:
+    def execute(self, action: Action) -> ExecutionResult:
+        # Mouse-specific execution logic
+        ...
+
+# Register in ActionRunner
+executors = {
+    ActionType.KEYBOARD: KeyboardAdapter.create_default(),
+    ActionType.COMMAND: ShellAdapter(),
+    ActionType.MOUSE: MouseAdapter(),  # New adapter
+}
+```
 
 ---
 
@@ -454,6 +583,9 @@ Each component is tested in isolation:
 - **Event Dispatcher**: Mock WindowResolver, test context creation
 - **Configuration Parser**: Test YAML parsing, validation, and translation
 - **Configuration Loader**: Test action resolution with mock Configuration
+- **Action Runner**: Test orchestration with mock adapters
+- **Keyboard Adapter**: Mock pynput, test key execution
+- **Shell Adapter**: Mock subprocess, test command execution
 - **Integration tests**: Test full pipeline with mocked infrastructure
 
 This ensures tests are fast, deterministic, and focused.
@@ -464,7 +596,6 @@ This ensures tests are fast, deterministic, and focused.
 
 The pipeline architecture supports future extensions:
 
-- **Action Runner** (Sprint 7): Add at end of pipeline
 - **Configuration Reload**: Replace Configuration object at runtime
 - **Multiple Configuration Formats**: Add parsers for TOML, JSON without changing Loader
 - **Gesture Recognition**: Add as new stage between Engine and Dispatcher
