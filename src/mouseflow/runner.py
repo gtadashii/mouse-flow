@@ -31,7 +31,14 @@ def _create_keyboard_controller() -> KeyboardController:
     return controller
 
 
-def _get_key(name: str) -> Any:
+def _parse_key_combination(keys_str: str) -> list[str]:
+    """Parse a key combination string like 'ctrl+shift+p' into a list of key names."""
+    parts = keys_str.lower().split("+")
+    return [part.strip() for part in parts]
+
+
+def _to_pynput_keys(key_names: list[str]) -> list[object]:
+    """Convert key names to pynput key objects."""
     from pynput.keyboard import Key
 
     key_map = {
@@ -69,7 +76,18 @@ def _get_key(name: str) -> Any:
         "f11": Key.f11,
         "f12": Key.f12,
     }
-    return key_map.get(name)
+
+    keys = []
+    for name in key_names:
+        key = key_map.get(name)
+        if key is not None:
+            keys.append(key)
+        elif len(name) == 1:
+            keys.append(name)
+        else:
+            raise ValueError(f"Unknown key: {name}")
+
+    return keys
 
 
 def run_action(action: Action) -> ExecutionResult:
@@ -89,7 +107,8 @@ def _execute_keyboard(action: Action) -> ExecutionResult:
     """Execute a keyboard shortcut action."""
     try:
         keyboard = _create_keyboard_controller()
-        keys = _parse_key_combination(action.payload)
+        key_names = _parse_key_combination(action.payload)
+        keys = _to_pynput_keys(key_names)
 
         for key in keys[:-1]:
             keyboard.press(key)
@@ -144,24 +163,6 @@ def _execute_command(action: Action) -> ExecutionResult:
             status=ExecutionStatus.FAILURE,
             error_message=str(e),
         )
-
-
-def _parse_key_combination(keys_str: str) -> list[object]:
-    """Parse a key combination string like 'ctrl+shift+p' into pynput keys."""
-    parts = keys_str.lower().split("+")
-    keys = []
-
-    for part in parts:
-        part = part.strip()
-        key = _get_key(part)
-        if key is not None:
-            keys.append(key)
-        elif len(part) == 1:
-            keys.append(part)
-        else:
-            raise ValueError(f"Unknown key: {part}")
-
-    return keys
 
 
 def format_execution_result(result: ExecutionResult) -> str:

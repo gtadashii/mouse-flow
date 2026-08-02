@@ -39,9 +39,11 @@ class TestKeyboardExecution:
                 "mouseflow.runner._create_keyboard_controller",
                 return_value=mock_keyboard,
             ),
-            patch("mouseflow.runner._get_key") as mock_get_key,
+            patch(
+                "mouseflow.runner._to_pynput_keys",
+                side_effect=lambda names: [f"key_{n}" for n in names],
+            ),
         ):
-            mock_get_key.side_effect = lambda k: f"key_{k}"
             result = run_action(action)
 
         assert result.status == ExecutionStatus.SUCCESS
@@ -73,9 +75,11 @@ class TestKeyboardExecution:
                 "mouseflow.runner._create_keyboard_controller",
                 return_value=mock_keyboard,
             ),
-            patch("mouseflow.runner._get_key") as mock_get_key,
+            patch(
+                "mouseflow.runner._to_pynput_keys",
+                side_effect=lambda names: [f"key_{n}" for n in names],
+            ),
         ):
-            mock_get_key.side_effect = lambda k: f"key_{k}"
             result = run_action(action)
 
         assert result.status == ExecutionStatus.SUCCESS
