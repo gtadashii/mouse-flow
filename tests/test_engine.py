@@ -9,6 +9,7 @@ from mouseflow.engine import (
     get_event_name,
     is_supported_event,
     open_device,
+    read_events,
 )
 
 
@@ -122,3 +123,78 @@ class TestSupportedEventsConfiguration:
 
     def test_supported_events_contains_rel_hwheel(self) -> None:
         assert ecodes.REL_HWHEEL in SUPPORTED_EVENTS[ecodes.EV_REL]
+
+
+class TestReadEvents:
+    @patch("mouseflow.engine.InputDevice")
+    def test_read_events_yields_button_event(
+        self, mock_input_device: MagicMock
+    ) -> None:
+        mock_device = MagicMock()
+        mock_input_device.return_value = mock_device
+
+        event = _make_event(ecodes.EV_KEY, ecodes.BTN_SIDE, 1)
+        mock_device.read_loop.return_value = iter([event])
+
+        events = list(read_events("/dev/input/event0"))
+
+        assert len(events) == 1
+        assert events[0].event_type.value == "BUTTON"
+        assert events[0].button is not None
+        assert events[0].button.value == "BTN_SIDE"
+        assert events[0].value == 1
+
+    @patch("mouseflow.engine.InputDevice")
+    def test_read_events_yields_wheel_event(self, mock_input_device: MagicMock) -> None:
+        mock_device = MagicMock()
+        mock_input_device.return_value = mock_device
+
+        event = _make_event(ecodes.EV_REL, ecodes.REL_HWHEEL, 1)
+        mock_device.read_loop.return_value = iter([event])
+
+        events = list(read_events("/dev/input/event0"))
+
+        assert len(events) == 1
+        assert events[0].event_type.value == "WHEEL"
+        assert events[0].wheel is not None
+        assert events[0].wheel.value == "REL_HWHEEL"
+        assert events[0].value == 1
+
+    @patch("mouseflow.engine.InputDevice")
+    def test_read_events_filters_unsupported_events(
+        self, mock_input_device: MagicMock
+    ) -> None:
+        mock_device = MagicMock()
+        mock_input_device.return_value = mock_device
+
+        supported_event = _make_event(ecodes.EV_KEY, ecodes.BTN_SIDE, 1)
+        unsupported_event = _make_event(ecodes.EV_KEY, ecodes.BTN_LEFT, 1)
+        mock_device.read_loop.return_value = iter([unsupported_event, supported_event])
+
+        events = list(read_events("/dev/input/event0"))
+
+        assert len(events) == 1
+        assert events[0].button is not None
+        assert events[0].button.value == "BTN_SIDE"
+
+    @patch("mouseflow.engine.InputDevice")
+    def test_read_events_multiple_events(self, mock_input_device: MagicMock) -> None:
+        mock_device = MagicMock()
+        mock_input_device.return_value = mock_device
+
+        events_input = [
+            _make_event(ecodes.EV_KEY, ecodes.BTN_SIDE, 1),
+            _make_event(ecodes.EV_KEY, ecodes.BTN_EXTRA, 1),
+            _make_event(ecodes.EV_REL, ecodes.REL_HWHEEL, 1),
+        ]
+        mock_device.read_loop.return_value = iter(events_input)
+
+        events = list(read_events("/dev/input/event0"))
+
+        assert len(events) == 3
+        assert events[0].button is not None
+        assert events[0].button.value == "BTN_SIDE"
+        assert events[1].button is not None
+        assert events[1].button.value == "BTN_EXTRA"
+        assert events[2].wheel is not None
+        assert events[2].wheel.value == "REL_HWHEEL"

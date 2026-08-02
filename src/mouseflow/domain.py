@@ -55,6 +55,18 @@ class Window:
     title: str = "Untitled"
 
 
+@dataclass(frozen=True)
+class WindowInfo:
+    application: Application
+    window: Window
+
+
+@dataclass(frozen=True)
+class DispatchContext:
+    event: MouseEvent
+    window_info: WindowInfo | None = None
+
+
 class ActionType(Enum):
     KEYBOARD = "KEYBOARD"
     COMMAND = "COMMAND"

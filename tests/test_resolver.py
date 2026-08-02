@@ -2,10 +2,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mouseflow.domain import Application, Window
+from mouseflow.domain import Application, Window, WindowInfo
 from mouseflow.resolver import (
     SwayResolver,
-    WindowInfo,
     format_window_info,
     resolve_active_window,
 )

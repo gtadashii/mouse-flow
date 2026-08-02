@@ -1,18 +1,11 @@
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass
 from typing import Protocol
 
 from i3ipc import Connection
 
-from mouseflow.domain import Application, Window
-
-
-@dataclass(frozen=True)
-class WindowInfo:
-    application: Application
-    window: Window
+from mouseflow.domain import Application, Window, WindowInfo
 
 
 class WindowResolver(Protocol):

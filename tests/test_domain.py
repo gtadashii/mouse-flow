@@ -4,12 +4,14 @@ from mouseflow.domain import (
     Action,
     ActionType,
     Application,
+    DispatchContext,
     EventType,
     MouseButton,
     MouseEvent,
     Profile,
     WheelAxis,
     Window,
+    WindowInfo,
     command_action,
     keyboard_action,
 )
@@ -198,3 +200,73 @@ class TestProfile:
         profile = Profile(app_name="firefox", mappings={})
         with pytest.raises(AttributeError):
             profile.mappings = {}  # type: ignore[misc]
+
+
+class TestWindowInfo:
+    def test_creation(self) -> None:
+        app = Application(app_name="Firefox")
+        window = Window(title="ChatGPT")
+        info = WindowInfo(application=app, window=window)
+        assert info.application.app_name == "Firefox"
+        assert info.window.title == "ChatGPT"
+
+    def test_equality(self) -> None:
+        app = Application(app_name="Firefox")
+        window = Window(title="ChatGPT")
+        info1 = WindowInfo(application=app, window=window)
+        info2 = WindowInfo(application=app, window=window)
+        assert info1 == info2
+
+    def test_inequality(self) -> None:
+        app1 = Application(app_name="Firefox")
+        app2 = Application(app_name="Chrome")
+        window = Window(title="ChatGPT")
+        info1 = WindowInfo(application=app1, window=window)
+        info2 = WindowInfo(application=app2, window=window)
+        assert info1 != info2
+
+    def test_immutability(self) -> None:
+        app = Application(app_name="Firefox")
+        window = Window(title="ChatGPT")
+        info = WindowInfo(application=app, window=window)
+        with pytest.raises(AttributeError):
+            info.application = Application(app_name="Chrome")  # type: ignore[misc]
+
+
+class TestDispatchContext:
+    def test_creation_with_window_info(self) -> None:
+        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        app = Application(app_name="Firefox")
+        window = Window(title="ChatGPT")
+        window_info = WindowInfo(application=app, window=window)
+        context = DispatchContext(event=event, window_info=window_info)
+        assert context.event == event
+        assert context.window_info == window_info
+
+    def test_creation_without_window_info(self) -> None:
+        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        context = DispatchContext(event=event)
+        assert context.event == event
+        assert context.window_info is None
+
+    def test_equality(self) -> None:
+        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        app = Application(app_name="Firefox")
+        window = Window(title="ChatGPT")
+        window_info = WindowInfo(application=app, window=window)
+        context1 = DispatchContext(event=event, window_info=window_info)
+        context2 = DispatchContext(event=event, window_info=window_info)
+        assert context1 == context2
+
+    def test_inequality(self) -> None:
+        event1 = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        event2 = MouseEvent.button_event(MouseButton.BTN_EXTRA)
+        context1 = DispatchContext(event=event1)
+        context2 = DispatchContext(event=event2)
+        assert context1 != context2
+
+    def test_immutability(self) -> None:
+        event = MouseEvent.button_event(MouseButton.BTN_SIDE)
+        context = DispatchContext(event=event)
+        with pytest.raises(AttributeError):
+            context.event = MouseEvent.button_event(MouseButton.BTN_EXTRA)  # type: ignore[misc]

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import signal
 import sys
+from collections.abc import Generator
 from typing import TYPE_CHECKING
 
 from evdev import InputDevice, ecodes
@@ -81,7 +82,7 @@ def to_domain_event(event: InputEvent) -> MouseEvent | None:
     return None
 
 
-def run_engine(device_path: str) -> None:
+def read_events(device_path: str) -> Generator[MouseEvent]:
     device = open_device(device_path)
 
     def signal_handler(_signum: int, _frame: object) -> None:
@@ -95,15 +96,23 @@ def run_engine(device_path: str) -> None:
             if is_supported_event(event):
                 domain_event = to_domain_event(event)
                 if domain_event is not None:
-                    if domain_event.event_type == EventType.BUTTON:
-                        button = domain_event.button
-                        button_val = button.value if button else "UNKNOWN"
-                        print(button_val)
-                    elif domain_event.event_type == EventType.WHEEL:
-                        wheel = domain_event.wheel
-                        wheel_val = wheel.value if wheel else "UNKNOWN"
-                        print(wheel_val)
+                    yield domain_event
     except OSError:
         print("Error: Device disconnected or unavailable", file=sys.stderr)
         device.close()
+        raise
+
+
+def run_engine(device_path: str) -> None:
+    try:
+        for domain_event in read_events(device_path):
+            if domain_event.event_type == EventType.BUTTON:
+                button = domain_event.button
+                button_val = button.value if button else "UNKNOWN"
+                print(button_val)
+            elif domain_event.event_type == EventType.WHEEL:
+                wheel = domain_event.wheel
+                wheel_val = wheel.value if wheel else "UNKNOWN"
+                print(wheel_val)
+    except OSError:
         sys.exit(1)
