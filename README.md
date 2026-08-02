@@ -36,6 +36,16 @@ Found device:
 Logitech MX Master 3S
 ```
 
+If running under Sway, MouseFlow will also display the currently focused window:
+
+```
+Application
+firefox
+
+Title
+ChatGPT
+```
+
 The application will then continuously listen for mouse events. When you press supported buttons or use the horizontal wheel, you'll see output like:
 
 ```
@@ -51,6 +61,12 @@ If no supported device is found:
 ```
 No supported mouse found.
 ```
+
+### Requirements
+
+- **Linux** with Wayland compositor (Sway recommended)
+- **Sway IPC**: MouseFlow uses Sway's IPC protocol to identify the active window. Ensure Sway is running.
+- **Input device permissions**: See [Troubleshooting](#troubleshooting) below.
 
 ### Supported Devices
 
@@ -135,6 +151,30 @@ To see if your mouse has the required buttons:
 ```
 
 Replace `eventX` with your device path (e.g., `event0`, `event1`).
+
+#### Window information not displayed
+
+MouseFlow uses Sway's IPC protocol to identify the active window. If window information is not displayed:
+
+1. **Verify Sway is running:**
+   ```bash
+   swaymsg -t get_version
+   ```
+   This should return version information if Sway is running.
+
+2. **Check Sway socket:**
+   The Sway IPC socket is typically at `$SWAYSOCK` or `~/.sway-ipc.*.sock`. Verify it exists:
+   ```bash
+   ls -la $SWAYSOCK
+   ```
+
+3. **Test Sway IPC manually:**
+   ```bash
+   swaymsg -t get_tree
+   ```
+   This should return a JSON tree of all windows.
+
+If you're not using Sway, window resolution is not yet supported. Future versions will add support for other Wayland compositors.
 
 ## Development
 
