@@ -265,7 +265,7 @@ class TestPipelineIntegration:
             WindowInfo,
         )
         from mouseflow.loader import resolve_action
-        from mouseflow.profile_resolver import ProfileResolver
+        from mouseflow.profile_resolver import DefaultProfileResolver
 
         config = Configuration(
             profiles=(
@@ -288,7 +288,7 @@ class TestPipelineIntegration:
         )
         context = DispatchContext(event=event, window_info=window_info)
 
-        resolver = ProfileResolver()
+        resolver = DefaultProfileResolver()
         profile = resolver.resolve(config, window_info)
         action = resolve_action(context, profile)
         assert action is not None
@@ -316,7 +316,7 @@ class TestPipelineIntegration:
             command_action,
         )
         from mouseflow.loader import resolve_action
-        from mouseflow.profile_resolver import ProfileResolver
+        from mouseflow.profile_resolver import DefaultProfileResolver
 
         config = Configuration(
             profiles=(
@@ -336,7 +336,7 @@ class TestPipelineIntegration:
         )
         context = DispatchContext(event=event, window_info=window_info)
 
-        resolver = ProfileResolver()
+        resolver = DefaultProfileResolver()
         profile = resolver.resolve(config, window_info)
         action = resolve_action(context, profile)
         assert action is not None
@@ -365,7 +365,7 @@ class TestPipelineIntegration:
             command_action,
         )
         from mouseflow.loader import resolve_action
-        from mouseflow.profile_resolver import ProfileResolver
+        from mouseflow.profile_resolver import DefaultProfileResolver
 
         config = Configuration(
             profiles=(
@@ -385,7 +385,7 @@ class TestPipelineIntegration:
         )
         context = DispatchContext(event=event, window_info=window_info)
 
-        resolver = ProfileResolver()
+        resolver = DefaultProfileResolver()
         profile = resolver.resolve(config, window_info)
         action = resolve_action(context, profile)
         assert action is not None
@@ -416,7 +416,7 @@ class TestPipelineIntegration:
             command_action,
         )
         from mouseflow.loader import resolve_action
-        from mouseflow.profile_resolver import ProfileResolver
+        from mouseflow.profile_resolver import DefaultProfileResolver
 
         config = Configuration(
             profiles=(
@@ -449,7 +449,7 @@ class TestPipelineIntegration:
         )
         context1 = DispatchContext(event=event1, window_info=window_info)
 
-        resolver = ProfileResolver()
+        resolver = DefaultProfileResolver()
         profile = resolver.resolve(config, window_info)
         action1 = resolve_action(context1, profile)
         assert action1 is not None
@@ -481,7 +481,7 @@ class TestPipelineIntegration:
             command_action,
         )
         from mouseflow.loader import resolve_action
-        from mouseflow.profile_resolver import ProfileResolver
+        from mouseflow.profile_resolver import DefaultProfileResolver
 
         config = Configuration(
             profiles=(
@@ -501,7 +501,7 @@ class TestPipelineIntegration:
         )
         context = DispatchContext(event=event, window_info=window_info)
 
-        resolver = ProfileResolver()
+        resolver = DefaultProfileResolver()
         profile = resolver.resolve(config, window_info)
         action = resolve_action(context, profile)
         assert action is not None

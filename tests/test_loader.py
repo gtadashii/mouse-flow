@@ -15,7 +15,7 @@ from mouseflow.domain import (
     WindowInfo,
 )
 from mouseflow.loader import resolve_action
-from mouseflow.profile_resolver import ProfileResolver
+from mouseflow.profile_resolver import DefaultProfileResolver
 
 
 class TestResolveAction:
@@ -106,7 +106,7 @@ class TestIntegration:
         )
 
         config = parse_config(config_file)
-        resolver = ProfileResolver()
+        resolver = DefaultProfileResolver()
 
         event = MouseEvent.button_event(MouseButton.BTN_SIDE)
         window_info = WindowInfo(
@@ -137,7 +137,7 @@ class TestIntegration:
         )
 
         config = parse_config(config_file)
-        resolver = ProfileResolver()
+        resolver = DefaultProfileResolver()
 
         event = MouseEvent.button_event(MouseButton.BTN_EXTRA)
         window_info = WindowInfo(
@@ -170,7 +170,7 @@ class TestIntegration:
         )
 
         config = parse_config(config_file)
-        resolver = ProfileResolver()
+        resolver = DefaultProfileResolver()
 
         event = MouseEvent.button_event(MouseButton.BTN_SIDE)
         window_info = WindowInfo(

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Protocol
+
 from mouseflow.domain import (
     GLOBAL_PROFILE_NAME,
     Configuration,
@@ -8,7 +10,15 @@ from mouseflow.domain import (
 )
 
 
-class ProfileResolver:
+class ProfileResolver(Protocol):
+    def resolve(
+        self,
+        configuration: Configuration,
+        window_info: WindowInfo | None,
+    ) -> Profile | None: ...
+
+
+class DefaultProfileResolver:
     def resolve(
         self,
         configuration: Configuration,

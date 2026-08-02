@@ -50,6 +50,31 @@ def _load_yaml(path: Path) -> dict[str, Any]:
     return data
 
 
+def _validate_action_mapping(
+    event_key: str,
+    action: Any,
+    context: str,
+) -> None:
+    if not isinstance(action, dict):
+        raise ValidationError(f"Mapping {event_key} in {context} must be a mapping")
+
+    if "type" not in action:
+        raise ValidationError(
+            f"Mapping {event_key} in {context} missing required field: type",
+        )
+
+    if "payload" not in action:
+        raise ValidationError(
+            f"Mapping {event_key} in {context} missing required field: payload",
+        )
+
+    action_type = action["type"]
+    if action_type not in ("keyboard", "command"):
+        raise ValidationError(
+            f"Mapping {event_key} in {context} has invalid action type: {action_type}",
+        )
+
+
 def _validate_structure(data: dict[str, Any]) -> None:
     if "profiles" not in data and "global" not in data:
         raise ValidationError("Missing required field: profiles or global")
@@ -81,31 +106,7 @@ def _validate_structure(data: dict[str, Any]) -> None:
                 raise ValidationError(f"Profile {i} mappings must be a mapping")
 
             for event_key, action in mappings.items():
-                if not isinstance(action, dict):
-                    msg = f"Mapping {event_key} in profile {i} must be a mapping"
-                    raise ValidationError(msg)
-
-                if "type" not in action:
-                    msg = (
-                        f"Mapping {event_key} in profile {i} "
-                        "missing required field: type"
-                    )
-                    raise ValidationError(msg)
-
-                if "payload" not in action:
-                    msg = (
-                        f"Mapping {event_key} in profile {i} "
-                        "missing required field: payload"
-                    )
-                    raise ValidationError(msg)
-
-                action_type = action["type"]
-                if action_type not in ("keyboard", "command"):
-                    msg = (
-                        f"Mapping {event_key} in profile {i} "
-                        f"has invalid action type: {action_type}"
-                    )
-                    raise ValidationError(msg)
+                _validate_action_mapping(event_key, action, f"profile {i}")
 
     if "global" in data:
         global_mappings = data["global"]
@@ -113,25 +114,7 @@ def _validate_structure(data: dict[str, Any]) -> None:
             raise ValidationError("global must be a mapping")
 
         for event_key, action in global_mappings.items():
-            if not isinstance(action, dict):
-                msg = f"Mapping {event_key} in global must be a mapping"
-                raise ValidationError(msg)
-
-            if "type" not in action:
-                msg = f"Mapping {event_key} in global missing required field: type"
-                raise ValidationError(msg)
-
-            if "payload" not in action:
-                msg = f"Mapping {event_key} in global missing required field: payload"
-                raise ValidationError(msg)
-
-            action_type = action["type"]
-            if action_type not in ("keyboard", "command"):
-                msg = (
-                    f"Mapping {event_key} in global "
-                    f"has invalid action type: {action_type}"
-                )
-                raise ValidationError(msg)
+            _validate_action_mapping(event_key, action, "global")
 
 
 def _translate_to_domain(data: dict[str, Any]) -> Configuration:

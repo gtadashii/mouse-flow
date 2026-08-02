@@ -5,7 +5,7 @@ from mouseflow.dispatcher import EventDispatcher, format_dispatch_context
 from mouseflow.engine import read_events
 from mouseflow.loader import resolve_action
 from mouseflow.parser import parse_config
-from mouseflow.profile_resolver import ProfileResolver
+from mouseflow.profile_resolver import DefaultProfileResolver
 from mouseflow.resolver import SwayResolver
 from mouseflow.runner import format_execution_result, run_action
 
@@ -21,7 +21,7 @@ def main() -> None:
     config = parse_config()
     resolver = SwayResolver()
     dispatcher = EventDispatcher(resolver)
-    profile_resolver = ProfileResolver()
+    profile_resolver = DefaultProfileResolver()
 
     for context in dispatcher.dispatch(read_events(device.path)):
         profile = profile_resolver.resolve(config, context.window_info)

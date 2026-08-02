@@ -171,11 +171,13 @@ Examples:
 
 ---
 
-## Phase 8 — Per-Application Profiles
+## Phase 8 — Per-Application Profiles ✓ COMPLETE
 
 ### Goal
 
 Allow different mappings depending on the focused application.
+
+### Deliverable
 
 Example:
 
@@ -195,6 +197,13 @@ BTN_SIDE
 
 Ctrl+-
 
+### Implementation
+
+- ProfileResolver component with deterministic precedence
+- Global profile fallback support
+- YAML configuration with `global:` key
+- Profile selection reporting
+
 ---
 
 ## Phase 9 — Mouse Gestures
@@ -203,11 +212,27 @@ Ctrl+-
 
 Recognize gesture movements while holding a mouse button.
 
-Examples:
+### Features
 
-- Workspace switching
-- Window management
-- Custom shortcuts
+- Direction-based gestures (up, down, left, right)
+- Diagonal gestures (up-left, up-right, down-left, down-right)
+- Gesture recognition while holding mouse buttons
+- Configurable gesture actions per application
+
+### Examples
+
+- Swipe left → Workspace previous
+- Swipe right → Workspace next
+- Swipe up → Window maximize
+- Swipe down → Window minimize
+- Circular gesture → Custom shortcut
+
+### Technical Considerations
+
+- Gesture recognition engine as new pipeline stage
+- Gesture domain objects (Gesture, GestureDirection)
+- Integration with existing profile system
+- Configurable gesture sensitivity
 
 ---
 

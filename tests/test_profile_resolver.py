@@ -9,7 +9,7 @@ from mouseflow.domain import (
     WindowInfo,
     keyboard_action,
 )
-from mouseflow.profile_resolver import ProfileResolver, format_profile_name
+from mouseflow.profile_resolver import DefaultProfileResolver, format_profile_name
 
 
 class TestProfileResolver:
@@ -23,7 +23,7 @@ class TestProfileResolver:
             application=Application(app_name="firefox"),
             window=Window(title="Test"),
         )
-        resolver = ProfileResolver()
+        resolver = DefaultProfileResolver()
 
         result = resolver.resolve(config, window_info)
 
@@ -43,7 +43,7 @@ class TestProfileResolver:
             application=Application(app_name="firefox"),
             window=Window(title="Test"),
         )
-        resolver = ProfileResolver()
+        resolver = DefaultProfileResolver()
 
         result = resolver.resolve(config, window_info)
 
@@ -60,7 +60,7 @@ class TestProfileResolver:
             application=Application(app_name="chrome"),
             window=Window(title="Test"),
         )
-        resolver = ProfileResolver()
+        resolver = DefaultProfileResolver()
 
         result = resolver.resolve(config, window_info)
 
@@ -76,7 +76,7 @@ class TestProfileResolver:
             application=Application(app_name="Unknown"),
             window=Window(title="Test"),
         )
-        resolver = ProfileResolver()
+        resolver = DefaultProfileResolver()
 
         result = resolver.resolve(config, window_info)
 
@@ -88,7 +88,7 @@ class TestProfileResolver:
             application=Application(app_name="firefox"),
             window=Window(title="Test"),
         )
-        resolver = ProfileResolver()
+        resolver = DefaultProfileResolver()
 
         result = resolver.resolve(config, window_info)
 
@@ -104,7 +104,7 @@ class TestProfileResolver:
             application=Application(app_name="chrome"),
             window=Window(title="Test"),
         )
-        resolver = ProfileResolver()
+        resolver = DefaultProfileResolver()
 
         result = resolver.resolve(config, window_info)
 
@@ -120,7 +120,7 @@ class TestProfileResolver:
             mappings={"BTN_SIDE": keyboard_action("ctrl+left")},
         )
         config = Configuration(profiles=(firefox_profile, global_profile))
-        resolver = ProfileResolver()
+        resolver = DefaultProfileResolver()
 
         result = resolver.resolve(config, None)
 
@@ -140,7 +140,7 @@ class TestProfileResolver:
             application=Application(app_name="firefox"),
             window=Window(title="Test"),
         )
-        resolver = ProfileResolver()
+        resolver = DefaultProfileResolver()
 
         result1 = resolver.resolve(config, window_info)
         result2 = resolver.resolve(config, window_info)
