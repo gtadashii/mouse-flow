@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Per-application mouse actions for Wayland compositors"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = ["evdev>=1.7.0", "i3ipc>=2.2.1", "pyyaml>=6.0"]
+dependencies = ["evdev>=1.7.0", "i3ipc>=2.2.1", "pyyaml>=6.0", "pynput>=1.7.6"]
 
 [project.scripts]
 mouseflow = "mouseflow.__main__:main"
@@ -67,7 +67,7 @@ warn_no_return = true
 follow_imports = "normal"
 
 [[tool.mypy.overrides]]
-module = ["i3ipc.*", "yaml.*"]
+module = ["i3ipc.*", "yaml.*", "pynput.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
