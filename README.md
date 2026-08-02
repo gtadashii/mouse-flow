@@ -36,6 +36,16 @@ Found device:
 Logitech MX Master 3S
 ```
 
+The application will then continuously listen for mouse events. When you press supported buttons or use the horizontal wheel, you'll see output like:
+
+```
+BTN_SIDE
+BTN_EXTRA
+REL_HWHEEL
+```
+
+Press `Ctrl+C` to stop the application.
+
 If no supported device is found:
 
 ```
@@ -52,6 +62,16 @@ MouseFlow automatically detects mice with:
 Compatible devices include:
 - Logitech MX Master series (3, 3S, etc.)
 - Other mice with side buttons
+
+### Supported Events
+
+MouseFlow currently recognizes these mouse events:
+- **BTN_SIDE** - Side button (typically thumb button)
+- **BTN_EXTRA** - Extra button (additional side button)
+- **BTN_FORWARD** - Forward button
+- **REL_HWHEEL** - Horizontal wheel scroll
+
+More events will be supported in future versions.
 
 ### Troubleshooting
 
