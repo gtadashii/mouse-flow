@@ -42,6 +42,10 @@ class TestInputIdentifier:
         assert InputIdentifier.GESTURE_LEFT.value == "GESTURE_LEFT"
         assert InputIdentifier.GESTURE_RIGHT.value == "GESTURE_RIGHT"
 
+    def test_thumb_wheel_identifiers(self) -> None:
+        assert InputIdentifier.THUMB_WHEEL_LEFT.value == "THUMB_WHEEL_LEFT"
+        assert InputIdentifier.THUMB_WHEEL_RIGHT.value == "THUMB_WHEEL_RIGHT"
+
 
 class TestUserInput:
     def test_creation(self) -> None:

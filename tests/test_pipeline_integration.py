@@ -79,7 +79,7 @@ class TestPipelineIntegration:
         assert isinstance(contexts[1].event, UserInput)
         assert contexts[1].event.identifier == InputIdentifier.BTN_EXTRA
         assert isinstance(contexts[2].event, UserInput)
-        assert contexts[2].event.identifier == InputIdentifier.GESTURE_RIGHT
+        assert contexts[2].event.identifier == InputIdentifier.THUMB_WHEEL_RIGHT
 
         for context in contexts:
             assert context.window_info is not None

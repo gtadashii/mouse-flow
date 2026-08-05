@@ -9,6 +9,7 @@ from mouseflow.engine import (
     SUPPORTED_EVENTS,
     get_event_name,
     is_supported_event,
+    mouse_event_to_userinput,
     open_device,
     read_events,
 )
@@ -155,7 +156,7 @@ class TestReadEvents:
 
         assert len(events) == 1
         assert isinstance(events[0], UserInput)
-        assert events[0].identifier == InputIdentifier.GESTURE_RIGHT
+        assert events[0].identifier == InputIdentifier.THUMB_WHEEL_RIGHT
 
     @patch("mouseflow.engine.InputDevice")
     def test_read_events_filters_unsupported_events(
@@ -190,4 +191,20 @@ class TestReadEvents:
         assert len(events) == 3
         assert events[0].identifier == InputIdentifier.BTN_SIDE
         assert events[1].identifier == InputIdentifier.BTN_EXTRA
-        assert events[2].identifier == InputIdentifier.GESTURE_RIGHT
+        assert events[2].identifier == InputIdentifier.THUMB_WHEEL_RIGHT
+
+
+class TestMouseEventToUserInput:
+    def test_hwheel_positive_maps_to_thumb_wheel_right(self) -> None:
+        from mouseflow.domain import MouseEvent, WheelAxis
+
+        event = MouseEvent.wheel_event(WheelAxis.REL_HWHEEL, 1)
+        result = mouse_event_to_userinput(event)
+        assert result.identifier == InputIdentifier.THUMB_WHEEL_RIGHT
+
+    def test_hwheel_negative_maps_to_thumb_wheel_left(self) -> None:
+        from mouseflow.domain import MouseEvent, WheelAxis
+
+        event = MouseEvent.wheel_event(WheelAxis.REL_HWHEEL, -1)
+        result = mouse_event_to_userinput(event)
+        assert result.identifier == InputIdentifier.THUMB_WHEEL_LEFT

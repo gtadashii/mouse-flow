@@ -335,3 +335,49 @@ class TestGlobalProfileParsing:
         assert firefox_profile is not None
         vscode_profile = config.get_profile("vscode")
         assert vscode_profile is not None
+
+
+class TestThumbWheelParsing:
+    def test_parse_thumb_wheel_mappings(self, tmp_path: Path) -> None:
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            "profiles:\n"
+            "  - app_name: firefox\n"
+            "    mappings:\n"
+            "      THUMB_WHEEL_LEFT:\n"
+            "        type: keyboard\n"
+            "        payload: ctrl+shift+tab\n"
+            "      THUMB_WHEEL_RIGHT:\n"
+            "        type: keyboard\n"
+            "        payload: ctrl+tab\n",
+        )
+
+        config = parse_config(config_file)
+
+        assert len(config.profiles) == 1
+        profile = config.profiles[0]
+        assert InputIdentifier.THUMB_WHEEL_LEFT in profile.mappings
+        assert InputIdentifier.THUMB_WHEEL_RIGHT in profile.mappings
+        left_action = profile.mappings[InputIdentifier.THUMB_WHEEL_LEFT]
+        right_action = profile.mappings[InputIdentifier.THUMB_WHEEL_RIGHT]
+        assert left_action.payload == "ctrl+shift+tab"
+        assert right_action.payload == "ctrl+tab"
+
+    def test_parse_thumb_wheel_in_global_profile(self, tmp_path: Path) -> None:
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            "global:\n"
+            "  THUMB_WHEEL_LEFT:\n"
+            "    type: keyboard\n"
+            "    payload: alt+left\n"
+            "  THUMB_WHEEL_RIGHT:\n"
+            "    type: keyboard\n"
+            "    payload: alt+right\n",
+        )
+
+        config = parse_config(config_file)
+
+        global_profile = config.get_global_profile()
+        assert global_profile is not None
+        assert InputIdentifier.THUMB_WHEEL_LEFT in global_profile.mappings
+        assert InputIdentifier.THUMB_WHEEL_RIGHT in global_profile.mappings

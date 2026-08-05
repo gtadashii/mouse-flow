@@ -132,9 +132,9 @@ def mouse_event_to_userinput(event: MouseEvent) -> UserInput:
             raise ValueError("Wheel event must have a wheel axis")
         if event.wheel == WheelAxis.REL_HWHEEL:
             if event.value > 0:
-                return UserInput(identifier=InputIdentifier.GESTURE_RIGHT)
+                return UserInput(identifier=InputIdentifier.THUMB_WHEEL_RIGHT)
             if event.value < 0:
-                return UserInput(identifier=InputIdentifier.GESTURE_LEFT)
+                return UserInput(identifier=InputIdentifier.THUMB_WHEEL_LEFT)
         raise ValueError(f"Unsupported wheel axis: {event.wheel}")
 
     raise ValueError(f"Unknown event type: {event.event_type}")
