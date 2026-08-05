@@ -139,6 +139,7 @@ The Configuration Parser is the only component that knows about the YAML format.
 - Filters supported events (BTN_SIDE, BTN_EXTRA, BTN_FORWARD, REL_HWHEEL)
 - Converts evdev events to internal MouseEvent/Gesture objects
 - Converts internal objects to UserInput for pipeline consumption
+- Maps REL_HWHEEL events to THUMB_WHEEL_LEFT/THUMB_WHEEL_RIGHT identifiers
 - Yields UserInput objects lazily via generator
 - Handles device disconnection gracefully
 
@@ -418,6 +419,9 @@ class InputIdentifier(Enum):
     GESTURE_DOWN = "GESTURE_DOWN"
     GESTURE_LEFT = "GESTURE_LEFT"
     GESTURE_RIGHT = "GESTURE_RIGHT"
+    # Thumb Wheel
+    THUMB_WHEEL_LEFT = "THUMB_WHEEL_LEFT"
+    THUMB_WHEEL_RIGHT = "THUMB_WHEEL_RIGHT"
 
 @dataclass(frozen=True)
 class Application:
