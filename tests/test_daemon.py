@@ -1,15 +1,42 @@
 from __future__ import annotations
 
 import logging
+import os
 import signal
 from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mouseflow.daemon import Daemon, setup_logging
+from mouseflow.daemon import (
+    Daemon,
+    DaemonError,
+    DaemonInitializationError,
+    DaemonRuntimeError,
+    DaemonState,
+    setup_logging,
+)
 from mouseflow.discovery import SupportedDevice
 from mouseflow.domain import Configuration
+
+
+class TestDaemonState:
+    def test_state_values(self) -> None:
+        assert DaemonState.INITIALIZING.value == "INITIALIZING"
+        assert DaemonState.RUNNING.value == "RUNNING"
+        assert DaemonState.SHUTTING_DOWN.value == "SHUTTING_DOWN"
+        assert DaemonState.STOPPED.value == "STOPPED"
+
+
+class TestDaemonExceptions:
+    def test_daemon_error_is_exception(self) -> None:
+        assert issubclass(DaemonError, Exception)
+
+    def test_daemon_initialization_error_is_daemon_error(self) -> None:
+        assert issubclass(DaemonInitializationError, DaemonError)
+
+    def test_daemon_runtime_error_is_daemon_error(self) -> None:
+        assert issubclass(DaemonRuntimeError, DaemonError)
 
 
 class TestSetupLogging:
@@ -39,6 +66,24 @@ class TestSetupLogging:
             assert "%(levelname)s" in fmt
             assert "%(name)s" in fmt
             assert "%(message)s" in fmt
+
+    def test_reads_log_level_from_environment(self) -> None:
+        with (
+            patch.dict(os.environ, {"MOUSEFLOW_LOG_LEVEL": "DEBUG"}),
+            patch("mouseflow.daemon.logging.basicConfig") as mock_config,
+        ):
+            setup_logging()
+            call_kwargs = mock_config.call_args
+            assert call_kwargs.kwargs["level"] == logging.DEBUG
+
+    def test_invalid_env_level_defaults_to_info(self) -> None:
+        with (
+            patch.dict(os.environ, {"MOUSEFLOW_LOG_LEVEL": "INVALID"}),
+            patch("mouseflow.daemon.logging.basicConfig") as mock_config,
+        ):
+            setup_logging()
+            call_kwargs = mock_config.call_args
+            assert call_kwargs.kwargs["level"] == logging.INFO
 
 
 class TestDaemonStartup:
@@ -129,17 +174,33 @@ class TestDaemonStartup:
 
         daemon = Daemon()
 
-        with pytest.raises(SystemExit) as exc_info:
+        with pytest.raises(DaemonInitializationError, match="No supported mouse found"):
             daemon._initialize()
 
-        assert exc_info.value.code == 1
         mock_parse.assert_not_called()
+
+    @patch("mouseflow.daemon.parse_config")
+    @patch("mouseflow.daemon.find_supported_device")
+    def test_startup_sets_initializing_state(
+        self, mock_find: MagicMock, mock_parse: MagicMock
+    ) -> None:
+        mock_find.return_value = SupportedDevice(
+            name="Test Mouse", path="/dev/input/event0"
+        )
+        mock_parse.return_value = Configuration()
+
+        daemon = Daemon()
+        assert daemon._state == DaemonState.STOPPED
+
+        daemon._initialize()
+
+        assert daemon._state == DaemonState.INITIALIZING  # type: ignore[comparison-overlap]
 
 
 class TestDaemonShutdown:
     @patch("mouseflow.daemon.parse_config")
     @patch("mouseflow.daemon.find_supported_device")
-    def test_shutdown_sets_running_flag_to_false(
+    def test_shutdown_sets_state_to_stopped(
         self, mock_find: MagicMock, mock_parse: MagicMock
     ) -> None:
         mock_find.return_value = SupportedDevice(
@@ -149,11 +210,11 @@ class TestDaemonShutdown:
 
         daemon = Daemon()
         daemon._initialize()
-        daemon._running = True
+        daemon._state = DaemonState.RUNNING
 
         daemon._shutdown()
 
-        assert daemon._running is False
+        assert daemon._state == DaemonState.STOPPED
 
     @patch("mouseflow.daemon.parse_config")
     @patch("mouseflow.daemon.find_supported_device")
@@ -171,7 +232,7 @@ class TestDaemonShutdown:
         daemon._shutdown()
         daemon._shutdown()
 
-        assert daemon._running is False
+        assert daemon._state == DaemonState.STOPPED
 
 
 class TestDaemonSignalHandling:
@@ -221,11 +282,11 @@ class TestDaemonSignalHandling:
 
         daemon = Daemon()
         daemon._initialize()
-        daemon._running = True
+        daemon._state = DaemonState.RUNNING
 
         daemon._handle_signal(signal.SIGTERM, None)
 
-        assert daemon._running is False
+        assert daemon._state == DaemonState.STOPPED
 
     @patch("mouseflow.daemon.parse_config")
     @patch("mouseflow.daemon.find_supported_device")
@@ -239,11 +300,11 @@ class TestDaemonSignalHandling:
 
         daemon = Daemon()
         daemon._initialize()
-        daemon._running = True
+        daemon._state = DaemonState.RUNNING
 
         daemon._handle_signal(signal.SIGINT, None)
 
-        assert daemon._running is False
+        assert daemon._state == DaemonState.STOPPED
 
     @patch("mouseflow.daemon.parse_config")
     @patch("mouseflow.daemon.find_supported_device")
@@ -266,17 +327,17 @@ class TestDaemonSignalHandling:
         ]
 
         def stop_after_first_event(_events: Any) -> Any:
-            daemon._running = False
+            daemon._state = DaemonState.STOPPED
             return iter(events)
 
         mock_dispatcher = MagicMock()
         mock_dispatcher.dispatch.side_effect = stop_after_first_event
         daemon._dispatcher = mock_dispatcher
 
-        daemon._running = True
+        daemon._state = DaemonState.RUNNING
         daemon._run_event_loop()
 
-        assert daemon._running is False
+        assert daemon._state == DaemonState.STOPPED
 
 
 class TestDaemonResourceCleanup:
@@ -294,7 +355,7 @@ class TestDaemonResourceCleanup:
 
         with patch("mouseflow.daemon.read_events_with_gestures") as mock_read:
             mock_read.return_value = iter([])
-            daemon._running = True
+            daemon._state = DaemonState.RUNNING
             daemon._run_event_loop()
 
         mock_read.assert_called_once_with(mock_device_info.path)
@@ -311,7 +372,7 @@ class TestDaemonResourceCleanup:
 
         daemon = Daemon()
         daemon._initialize()
-        daemon._running = True
+        daemon._state = DaemonState.RUNNING
 
         with patch("mouseflow.daemon.logger") as mock_logger:
             daemon._shutdown()
@@ -343,7 +404,7 @@ class TestDaemonResourceCleanup:
 class TestDaemonFailureHandling:
     @patch("mouseflow.daemon.parse_config")
     @patch("mouseflow.daemon.find_supported_device")
-    def test_device_disconnection_exits_gracefully(
+    def test_device_disconnection_raises_runtime_error(
         self, mock_find: MagicMock, mock_parse: MagicMock
     ) -> None:
         mock_find.return_value = SupportedDevice(
@@ -358,36 +419,12 @@ class TestDaemonFailureHandling:
         mock_dispatcher.dispatch.side_effect = OSError("Device disconnected")
         daemon._dispatcher = mock_dispatcher
 
-        with pytest.raises(SystemExit) as exc_info:
+        with pytest.raises(DaemonRuntimeError, match="Device disconnected"):
             daemon._run_event_loop()
 
-        assert exc_info.value.code == 1
-
     @patch("mouseflow.daemon.parse_config")
     @patch("mouseflow.daemon.find_supported_device")
-    def test_device_disconnection_logs_error(
-        self, mock_find: MagicMock, mock_parse: MagicMock
-    ) -> None:
-        mock_find.return_value = SupportedDevice(
-            name="Test Mouse", path="/dev/input/event0"
-        )
-        mock_parse.return_value = Configuration()
-
-        daemon = Daemon()
-        daemon._initialize()
-
-        mock_dispatcher = MagicMock()
-        mock_dispatcher.dispatch.side_effect = OSError("Device disconnected")
-        daemon._dispatcher = mock_dispatcher
-
-        with patch("mouseflow.daemon.logger") as mock_logger:
-            with pytest.raises(SystemExit):
-                daemon._run_event_loop()
-            mock_logger.error.assert_any_call("Device disconnected or unavailable.")
-
-    @patch("mouseflow.daemon.parse_config")
-    @patch("mouseflow.daemon.find_supported_device")
-    def test_config_error_exits_gracefully(
+    def test_config_error_raises_initialization_error(
         self, mock_find: MagicMock, mock_parse: MagicMock
     ) -> None:
         from mouseflow.parser import ConfigurationError
@@ -419,6 +456,12 @@ class TestDaemonFailureHandling:
 
         with pytest.raises(Exception, match="Cannot connect to compositor"):
             daemon._initialize()
+
+    def test_run_event_loop_without_init_raises_error(self) -> None:
+        daemon = Daemon()
+
+        with pytest.raises(DaemonRuntimeError, match="Daemon not initialized"):
+            daemon._run_event_loop()
 
 
 class TestDaemonLifecycle:
@@ -474,3 +517,20 @@ class TestDaemonLifecycle:
         ):
             daemon.run()
             mock_register.assert_called_once()
+
+    @patch("mouseflow.daemon.parse_config")
+    @patch("mouseflow.daemon.find_supported_device")
+    def test_run_sets_running_state(
+        self, mock_find: MagicMock, mock_parse: MagicMock
+    ) -> None:
+        mock_find.return_value = SupportedDevice(
+            name="Test Mouse", path="/dev/input/event0"
+        )
+        mock_parse.return_value = Configuration()
+
+        daemon = Daemon()
+
+        with patch.object(daemon, "_run_event_loop"):
+            daemon.run()
+
+        assert daemon._state == DaemonState.STOPPED

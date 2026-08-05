@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import logging
+import os
 import signal
-import sys
+from enum import Enum
 from typing import Any
 
 from mouseflow.discovery import SupportedDevice, find_supported_device
@@ -18,7 +19,30 @@ from mouseflow.runner import run_action
 logger = logging.getLogger(__name__)
 
 
-def setup_logging(level: int = logging.INFO) -> None:
+class DaemonState(Enum):
+    INITIALIZING = "INITIALIZING"
+    RUNNING = "RUNNING"
+    SHUTTING_DOWN = "SHUTTING_DOWN"
+    STOPPED = "STOPPED"
+
+
+class DaemonError(Exception):
+    pass
+
+
+class DaemonInitializationError(DaemonError):
+    pass
+
+
+class DaemonRuntimeError(DaemonError):
+    pass
+
+
+def setup_logging(level: int | None = None) -> None:
+    if level is None:
+        env_level = os.environ.get("MOUSEFLOW_LOG_LEVEL", "INFO").upper()
+        level = getattr(logging, env_level, logging.INFO)
+
     logging.basicConfig(
         level=level,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -46,15 +70,15 @@ class Daemon:
         self._resolver: WindowResolver | None = None
         self._dispatcher: EventDispatcher | None = None
         self._profile_resolver: ProfileResolver | None = None
-        self._running: bool = False
+        self._state: DaemonState = DaemonState.STOPPED
 
     def _initialize(self) -> None:
+        self._state = DaemonState.INITIALIZING
         logger.info("Initializing MouseFlow daemon...")
 
         self._device = self._device_finder()
         if self._device is None:
-            logger.error("No supported mouse found.")
-            sys.exit(1)
+            raise DaemonInitializationError("No supported mouse found.")
         logger.info("Found device: %s", self._device.name)
 
         self._config = self._config_loader()
@@ -72,11 +96,12 @@ class Daemon:
         logger.info("Initialization complete.")
 
     def _shutdown(self) -> None:
-        if not self._running:
+        if self._state == DaemonState.STOPPED:
             return
+        self._state = DaemonState.SHUTTING_DOWN
         logger.info("Shutting down MouseFlow daemon...")
-        self._running = False
         logger.info("Shutdown complete.")
+        self._state = DaemonState.STOPPED
 
     def _handle_signal(self, signum: int, _frame: Any) -> None:
         sig_name = signal.Signals(signum).name
@@ -89,19 +114,22 @@ class Daemon:
         logger.info("Signal handlers registered.")
 
     def _run_event_loop(self) -> None:
-        assert self._device is not None
-        assert self._config is not None
-        assert self._dispatcher is not None
-        assert self._profile_resolver is not None
+        if (
+            self._device is None
+            or self._config is None
+            or self._dispatcher is None
+            or self._profile_resolver is None
+        ):
+            raise DaemonRuntimeError("Daemon not initialized.")
 
-        self._running = True
+        self._state = DaemonState.RUNNING
         logger.info("Starting event loop...")
 
         try:
             for context in self._dispatcher.dispatch(
                 read_events_with_gestures(self._device.path)
             ):
-                if not self._running:
+                if self._state != DaemonState.RUNNING:
                     break
 
                 profile = self._profile_resolver.resolve(
@@ -111,17 +139,16 @@ class Daemon:
                 if action is not None:
                     result = run_action(action)
                     logger.debug("Action executed: %s", result)
-        except OSError:
-            logger.error("Device disconnected or unavailable.")
-            sys.exit(1)
+        except OSError as e:
+            raise DaemonRuntimeError("Device disconnected or unavailable.") from e
 
         logger.info("Event loop terminated.")
 
     def run(self) -> None:
         setup_logging()
-        self._initialize()
-        self._register_signal_handlers()
         try:
+            self._initialize()
+            self._register_signal_handlers()
             self._run_event_loop()
         finally:
             self._shutdown()
