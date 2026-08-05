@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-import sys
+import logging
 from typing import Protocol
 
 from i3ipc import Connection
 
 from mouseflow.domain import Application, Window, WindowInfo
+
+logger = logging.getLogger(__name__)
 
 
 class WindowResolver(Protocol):
@@ -17,7 +19,7 @@ class SwayResolver:
         try:
             self._conn = Connection()
         except Exception as e:
-            print(f"Warning: Cannot connect to Sway IPC: {e}", file=sys.stderr)
+            logger.warning("Cannot connect to Sway IPC: %s", e)
             self._conn = None
 
     def resolve(self) -> WindowInfo | None:

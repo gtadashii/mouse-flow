@@ -397,6 +397,33 @@ Action Runner (Orchestrator)
 
 ---
 
+### Daemon
+
+**Responsibility:** Manage the application lifecycle (startup, shutdown, signal handling).
+
+**Input:** None (orchestrates other components)
+
+**Output:** None (manages process lifecycle)
+
+**Key behaviors:**
+- Configures logging infrastructure at startup
+- Initializes all components in correct order (device discovery, configuration, resolver, dispatcher, profile resolver)
+- Registers signal handlers for SIGTERM and SIGINT
+- Runs the event processing loop
+- Coordinates graceful shutdown on signal or error
+- Ensures resources are released via try/finally blocks
+- Handles device disconnection and compositor connection loss
+
+**Not responsible for:**
+- Processing input events
+- Resolving or executing actions
+- Loading configuration
+- Window resolution
+
+**Implementation:** `src/mouseflow/daemon.py`
+
+---
+
 ## Domain Objects
 
 The domain model is the **public API** of MouseFlow. Components communicate exclusively through domain objects.
@@ -565,12 +592,14 @@ Event processing uses Python generators for:
 mouseflow/
 ├── domain.py          # No dependencies (pure domain)
 ├── discovery.py       # Depends on: evdev
-├── engine.py          # Depends on: evdev, domain
-├── resolver.py        # Depends on: i3ipc, domain
+├── engine.py          # Depends on: evdev, domain, logging
+├── resolver.py        # Depends on: i3ipc, domain, logging
 ├── dispatcher.py      # Depends on: domain, resolver (protocol)
 ├── parser.py          # Depends on: yaml, domain
 ├── loader.py          # Depends on: domain
-└── runner.py          # Depends on: domain, pynput, subprocess
+├── runner.py          # Depends on: domain, pynput, subprocess
+└── daemon.py          # Depends on: discovery, engine, dispatcher, parser,
+                       #            resolver, loader, runner, signal, logging
 ```
 
 **Key observations:**
@@ -580,6 +609,8 @@ mouseflow/
 - `parser.py` is the only module that knows about YAML
 - `loader.py` depends only on domain objects, not on file formats
 - `runner.py` uses ports and adapters pattern: ActionRunner depends on ActionExecutor protocol, not concrete adapters
+- `daemon.py` orchestrates the application lifecycle and depends on all major components
+- `logging` module (stdlib) is used across modules for structured logging
 - No circular dependencies
 
 ---

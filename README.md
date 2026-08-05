@@ -56,6 +56,47 @@ REL_HWHEEL
 
 Press `Ctrl+C` to stop the application.
 
+### Running as a Background Service
+
+MouseFlow can run as a systemd user service, starting automatically with your desktop session.
+
+1. Install the package:
+   ```bash
+   uv pip install .
+   ```
+
+2. Copy the service file to your user systemd directory:
+   ```bash
+   mkdir -p ~/.config/systemd/user/
+   cp packaging/mouseflow.service ~/.config/systemd/user/
+   ```
+
+3. Enable and start the service:
+   ```bash
+   systemctl --user enable mouseflow
+   systemctl --user start mouseflow
+   ```
+
+4. Check the service status:
+   ```bash
+   systemctl --user status mouseflow
+   ```
+
+5. View logs:
+   ```bash
+   journalctl --user -u mouseflow -f
+   ```
+
+To stop the service:
+```bash
+systemctl --user stop mouseflow
+```
+
+To disable automatic startup:
+```bash
+systemctl --user disable mouseflow
+```
+
 If no supported device is found:
 
 ```

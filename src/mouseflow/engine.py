@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import signal
 import sys
 from collections.abc import Generator
@@ -22,6 +23,8 @@ from mouseflow.gesture import GestureRecognizer
 if TYPE_CHECKING:
     from evdev import InputEvent
 
+logger = logging.getLogger(__name__)
+
 SUPPORTED_EVENTS: dict[int, set[int]] = {
     ecodes.EV_KEY: {
         ecodes.BTN_SIDE,
@@ -40,7 +43,7 @@ def open_device(path: str) -> InputDevice[str]:
     try:
         return InputDevice(path)
     except (OSError, FileNotFoundError) as e:
-        print(f"Error: Cannot open device {path}: {e}", file=sys.stderr)
+        logger.error("Cannot open device %s: %s", path, e)
         sys.exit(1)
 
 
@@ -171,7 +174,7 @@ def read_events(device_path: str) -> Generator[UserInput]:
                 if domain_event is not None:
                     yield mouse_event_to_userinput(domain_event)
     except OSError:
-        print("Error: Device disconnected or unavailable", file=sys.stderr)
+        logger.error("Device disconnected or unavailable")
         device.close()
         raise
 
@@ -222,7 +225,7 @@ def read_events_with_gestures(
             elif not is_gesture_button:
                 yield mouse_event_to_userinput(domain_event)
     except OSError:
-        print("Error: Device disconnected or unavailable", file=sys.stderr)
+        logger.error("Device disconnected or unavailable")
         device.close()
         raise
 

@@ -1,0 +1,14 @@
+[Unit]
+Description=MouseFlow - Per-application mouse actions for Wayland
+Documentation=https://github.com/mouseflow/mouseflow
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/mouseflow
+Restart=on-failure
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target
