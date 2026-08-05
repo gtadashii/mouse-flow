@@ -22,13 +22,15 @@ Per-application mouse actions for Wayland compositors.
 
 ## Usage
 
-Run MouseFlow:
+MouseFlow provides a command-line interface for running the daemon and managing the application.
+
+### Starting the Daemon
 
 ```bash
-uv run mouseflow
+mouseflow start
 ```
 
-If a supported mouse is detected, you'll see:
+This starts the MouseFlow daemon in the foreground. If a supported mouse is detected, you'll see:
 
 ```
 Found device:
@@ -36,25 +38,59 @@ Found device:
 Logitech MX Master 3S
 ```
 
-If running under Sway, MouseFlow will also display the currently focused window:
+Press `Ctrl+C` to stop the daemon.
 
-```
-Application
-firefox
+### CLI Commands
 
-Title
-ChatGPT
-```
+MouseFlow provides several commands for inspecting and managing the running daemon:
 
-The application will then continuously listen for mouse events. When you press supported buttons or use the horizontal wheel, you'll see output like:
-
-```
-BTN_SIDE
-BTN_EXTRA
-REL_HWHEEL
+```bash
+mouseflow status          # Show application status
+mouseflow devices         # List available mouse devices
+mouseflow config show     # Show loaded configuration
+mouseflow config validate # Validate configuration file
+mouseflow config reload   # Reload configuration
 ```
 
-Press `Ctrl+C` to stop the application.
+**Note:** All commands except `start` require the daemon to be running.
+
+#### Status
+
+Shows the current state of the daemon:
+
+```bash
+$ mouseflow status
+Running: yes
+Device: connected
+Configuration: loaded
+Active profile: firefox
+```
+
+#### Devices
+
+Lists all supported mouse devices:
+
+```bash
+$ mouseflow devices
+Logitech MX Master 3S (active)
+  Path: /dev/input/event5
+```
+
+#### Configuration
+
+View and manage configuration:
+
+```bash
+# Show loaded configuration
+mouseflow config show
+
+# Validate configuration file
+mouseflow config validate
+mouseflow config validate /path/to/config.yaml
+
+# Reload configuration after editing
+mouseflow config reload
+```
 
 ### Running as a Background Service
 
@@ -87,6 +123,13 @@ MouseFlow can run as a systemd user service, starting automatically with your de
    journalctl --user -u mouseflow -f
    ```
 
+6. Use CLI commands to inspect the running daemon:
+   ```bash
+   mouseflow status
+   mouseflow devices
+   mouseflow config show
+   ```
+
 To stop the service:
 ```bash
 systemctl --user stop mouseflow
@@ -95,6 +138,11 @@ systemctl --user stop mouseflow
 To disable automatic startup:
 ```bash
 systemctl --user disable mouseflow
+```
+
+To reload configuration after editing:
+```bash
+mouseflow config reload
 ```
 
 If no supported device is found:

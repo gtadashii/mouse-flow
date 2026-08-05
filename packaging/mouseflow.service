@@ -5,7 +5,7 @@ After=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=%h/.local/bin/mouseflow
+ExecStart=%h/.local/bin/mouseflow start
 Restart=on-failure
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1

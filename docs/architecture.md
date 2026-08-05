@@ -99,6 +99,46 @@ Configuration is loaded once at startup, before event processing begins:
 
 The Configuration Parser is the only component that knows about the YAML format. After startup, the entire application operates on domain objects exclusively.
 
+### CLI Command Flow (Sprint 12)
+
+The CLI provides operational commands that interact with the running daemon:
+
+```
+┌─────────────────┐
+│   User Command  │
+│  (mouseflow X)  │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│      CLI        │ ← Parses command, validates args
+└────────┬────────┘
+         │ IPC Request (JSON)
+         ▼
+┌─────────────────┐
+│   Unix Socket   │ ← IPC mechanism (stdlib socket)
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  IPC Server     │ ← Daemon thread, dispatches to services
+│   (thread)      │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│    Service      │ ← Wraps components, exposes capabilities
+│     Layer       │
+└────────┬────────┘
+         │ Result (domain or operational objects)
+         ▼
+┌─────────────────┐
+│   CLI Output    │ ← Formats and displays result
+└─────────────────┘
+```
+
+The CLI operates independently of the event processing pipeline. It queries the daemon's runtime state without interfering with mouse event processing.
+
 ---
 
 ## Components
@@ -270,6 +310,33 @@ The Configuration Parser is the only component that knows about the YAML format.
 
 ---
 
+### Service Layer
+
+**Responsibility:** Expose application capabilities as a public API for external interfaces (CLI, future GUI).
+
+**Input:** Service method calls from CLI (via IPC) or other interfaces
+
+**Output:** Domain objects or operational result objects
+
+**Key behaviors:**
+- Wraps existing components with a clean, high-level API
+- Provides operational commands (list devices, reload config, get status)
+- Used by CLI via IPC and potentially by future interfaces
+- Returns domain objects (Configuration) or operational result objects (DeviceInfo, ApplicationStatus)
+- Handles errors and returns structured results
+- Combines multiple components for complex operations
+
+**Not responsible for:**
+- Parsing command-line arguments
+- IPC communication
+- Infrastructure details
+- Business logic (delegates to components)
+- Processing input events
+
+**Implementation:** `src/mouseflow/services.py`
+
+---
+
 ### Configuration Parser
 
 **Responsibility:** Parse configuration files and translate them into domain objects.
@@ -399,7 +466,7 @@ Action Runner (Orchestrator)
 
 ### Daemon
 
-**Responsibility:** Manage the application lifecycle (startup, shutdown, signal handling).
+**Responsibility:** Manage the application lifecycle (startup, shutdown, signal handling) and expose operational interface.
 
 **Input:** None (orchestrates other components)
 
@@ -413,14 +480,85 @@ Action Runner (Orchestrator)
 - Coordinates graceful shutdown on signal or error
 - Ensures resources are released via try/finally blocks
 - Handles device disconnection and compositor connection loss
+- Starts IPC server in a separate thread for CLI communication
+- Creates and holds ApplicationServices instance for operational commands
+- Supports runtime configuration reload
 
 **Not responsible for:**
 - Processing input events
 - Resolving or executing actions
 - Loading configuration
 - Window resolution
+- Parsing CLI commands (delegated to CLI component)
 
 **Implementation:** `src/mouseflow/daemon.py`
+
+---
+
+### IPC (Inter-Process Communication)
+
+**Responsibility:** Enable communication between CLI and daemon processes.
+
+**Input:** Command requests from CLI (JSON over Unix socket)
+
+**Output:** Command responses to CLI (JSON over Unix socket)
+
+**Key behaviors:**
+- Daemon starts Unix socket server in a separate thread at startup
+- CLI connects to socket and sends JSON command requests
+- Server dispatches requests to appropriate service methods
+- Returns JSON responses to CLI
+- Handles connection errors gracefully
+- Manages socket file lifecycle (creation, cleanup)
+- Supports concurrent CLI invocations
+
+**Protocol:**
+- Request format: `{"command": "...", "args": {...}}`
+- Response format: `{"status": "ok"|"error", "data": {...}}`
+
+**Socket location:** `~/.local/state/mouseflow/mouseflow.sock`
+
+**Not responsible for:**
+- Command parsing (delegated to CLI)
+- Business logic (delegated to Service Layer)
+- Service implementation
+
+**Implementation:** `src/mouseflow/ipc.py`
+
+---
+
+### CLI
+
+**Responsibility:** Parse user commands and invoke application services via IPC.
+
+**Input:** Command-line arguments
+
+**Output:** Human-readable results (stdout)
+
+**Key behaviors:**
+- Parses command-line arguments using argparse
+- Validates command and arguments
+- Connects to running daemon via Unix socket
+- Sends command request and receives JSON response
+- Formats and displays results to user
+- Exits after completing command
+- Provides clear error messages when daemon is not running
+
+**Commands:**
+- `start` - Start MouseFlow daemon
+- `status` - Show application status
+- `devices` - List available devices
+- `config show` - Show loaded configuration
+- `config validate` - Validate configuration file
+- `config reload` - Reload configuration
+
+**Not responsible for:**
+- Implementing business logic
+- Processing input events
+- Managing application lifecycle (delegates to daemon via `start` command)
+- Direct infrastructure interaction (delegates to services via IPC)
+
+**Implementation:** `src/mouseflow/cli.py`
 
 ---
 
@@ -509,6 +647,35 @@ class Gesture:
     direction: GestureDirection
 ```
 
+### Operational Objects (Service Layer)
+
+These objects are used by the Service Layer and CLI for operational commands. They represent operational results, not core domain concepts:
+
+```python
+@dataclass(frozen=True)
+class DeviceInfo:
+    path: str
+    name: str
+    is_active: bool
+
+@dataclass(frozen=True)
+class ApplicationStatus:
+    is_running: bool
+    device_connected: bool
+    configuration_loaded: bool
+    active_profile: str | None = None
+
+@dataclass(frozen=True)
+class ValidationResult:
+    is_valid: bool
+    errors: tuple[str, ...] = ()
+
+@dataclass(frozen=True)
+class ReloadResult:
+    success: bool
+    message: str | None = None
+```
+
 ### Design Principles
 
 - **Immutability**: All objects are frozen dataclasses
@@ -543,6 +710,24 @@ When the user presses BTN_SIDE in Firefox:
 
 Each step receives domain objects and produces domain objects. Infrastructure is confined to the edges.
 
+### CLI Command Flow
+
+When the user executes a CLI command (e.g., `mouseflow devices`):
+
+1. **CLI** parses command-line arguments → identifies `devices` command
+2. **CLI** connects to daemon via Unix socket (`~/.local/state/mouseflow/mouseflow.sock`)
+3. **CLI** sends JSON request: `{"command": "devices", "args": {}}`
+4. **IPC Server** (daemon thread) receives request
+5. **IPC Server** dispatches to `ApplicationServices.list_devices()`
+6. **Service Layer** calls `DeviceDiscovery.find_all_supported_devices()`
+7. **Service Layer** converts results to `DeviceInfo` objects
+8. **IPC Server** serializes response to JSON: `{"status": "ok", "data": [...]}`
+9. **CLI** receives JSON response
+10. **CLI** formats and displays results to user
+11. **CLI** exits
+
+The CLI operates independently of the event processing pipeline. It queries the daemon's runtime state via IPC without interfering with mouse event processing.
+
 ### Key Insight: Unified Input Pipeline
 
 All types of user input (buttons, gestures, thumb wheel) flow through the same pipeline as `UserInput` objects. The Configuration Loader uses `InputIdentifier` as the mapping key, eliminating the need for separate mapping dictionaries or type-specific branching logic.
@@ -571,6 +756,9 @@ Each component has one job:
 - Configuration Parser: parse configuration files into domain objects
 - Configuration Loader: resolve actions from configuration
 - Action Runner: execute actions
+- Service Layer: expose application capabilities as public API
+- IPC: enable CLI-daemon communication
+- CLI: parse commands and invoke services
 
 ### 4. Domain Purity
 
@@ -598,8 +786,12 @@ mouseflow/
 ├── parser.py          # Depends on: yaml, domain
 ├── loader.py          # Depends on: domain
 ├── runner.py          # Depends on: domain, pynput, subprocess
+├── services.py        # Depends on: domain, discovery, parser, daemon (state)
+├── ipc.py             # Depends on: socket, json, services
+├── cli.py             # Depends on: argparse, ipc, domain
 └── daemon.py          # Depends on: discovery, engine, dispatcher, parser,
-                       #            resolver, loader, runner, signal, logging
+                       #            resolver, loader, runner, services, ipc,
+                       #            signal, logging
 ```
 
 **Key observations:**
@@ -609,7 +801,10 @@ mouseflow/
 - `parser.py` is the only module that knows about YAML
 - `loader.py` depends only on domain objects, not on file formats
 - `runner.py` uses ports and adapters pattern: ActionRunner depends on ActionExecutor protocol, not concrete adapters
-- `daemon.py` orchestrates the application lifecycle and depends on all major components
+- `services.py` wraps components and exposes application capabilities as a public API
+- `ipc.py` uses stdlib `socket` and `json` for CLI-daemon communication
+- `cli.py` uses stdlib `argparse` for command parsing, no external dependencies
+- `daemon.py` orchestrates the application lifecycle and depends on all major components including services and IPC
 - `logging` module (stdlib) is used across modules for structured logging
 - No circular dependencies
 
@@ -706,6 +901,9 @@ Each component is tested in isolation:
 - **Action Runner**: Test orchestration with mock adapters
 - **Keyboard Adapter**: Mock pynput, test key execution
 - **Shell Adapter**: Mock subprocess, test command execution
+- **Service Layer**: Mock components, test service methods and result objects
+- **IPC**: Mock socket communication, test request/response handling
+- **CLI**: Mock IPC client, test command parsing and output formatting
 - **Integration tests**: Test full pipeline with mocked infrastructure
 
 This ensures tests are fast, deterministic, and focused.
@@ -716,11 +914,11 @@ This ensures tests are fast, deterministic, and focused.
 
 The pipeline architecture supports future extensions:
 
-- **Configuration Reload**: Replace Configuration object at runtime
 - **Multiple Configuration Formats**: Add parsers for TOML, JSON without changing Loader
 - **Gesture Recognition**: Add as new stage between Engine and Dispatcher
 - **Multiple Profiles**: Extend Configuration to merge profiles from multiple sources
 - **Plugin System**: Add plugin stage before Action Runner
 - **Remote Configuration**: Add API-based configuration source alongside file-based
+- **GUI Interface**: Add graphical interface using same Service Layer API
 
 Each extension is a new pipeline stage or enhancement to existing stage, without disrupting the overall architecture.

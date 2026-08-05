@@ -3,18 +3,22 @@ from __future__ import annotations
 import logging
 import os
 import signal
+import threading
 from enum import Enum
+from pathlib import Path
 from typing import Any
 
 from mouseflow.discovery import SupportedDevice, find_supported_device
 from mouseflow.dispatcher import EventDispatcher
 from mouseflow.domain import Configuration
 from mouseflow.engine import read_events_with_gestures
+from mouseflow.ipc import IPCServer
 from mouseflow.loader import resolve_action
-from mouseflow.parser import parse_config
+from mouseflow.parser import DEFAULT_CONFIG_PATH, parse_config
 from mouseflow.profile_resolver import DefaultProfileResolver, ProfileResolver
 from mouseflow.resolver import SwayResolver, WindowResolver
 from mouseflow.runner import run_action
+from mouseflow.services import ApplicationServices
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +61,7 @@ class Daemon:
         config_loader: Any = None,
         resolver_factory: Any = None,
         profile_resolver_factory: Any = None,
+        config_path: Path | None = None,
     ) -> None:
         self._device_finder = device_finder or find_supported_device
         self._config_loader = config_loader or parse_config
@@ -64,6 +69,7 @@ class Daemon:
         self._profile_resolver_factory = (
             profile_resolver_factory or DefaultProfileResolver
         )
+        self._config_path = config_path or DEFAULT_CONFIG_PATH
 
         self._device: SupportedDevice | None = None
         self._config: Configuration | None = None
@@ -71,6 +77,25 @@ class Daemon:
         self._dispatcher: EventDispatcher | None = None
         self._profile_resolver: ProfileResolver | None = None
         self._state: DaemonState = DaemonState.STOPPED
+        self._config_lock = threading.Lock()
+        self._ipc_server: IPCServer | None = None
+        self._services: ApplicationServices | None = None
+
+    @property
+    def active_device(self) -> SupportedDevice | None:
+        return self._device
+
+    @property
+    def configuration(self) -> Configuration | None:
+        return self._config
+
+    @property
+    def config_path(self) -> Path:
+        return self._config_path
+
+    def update_configuration(self, config: Configuration) -> None:
+        with self._config_lock:
+            self._config = config
 
     def _initialize(self) -> None:
         self._state = DaemonState.INITIALIZING
@@ -93,6 +118,13 @@ class Daemon:
         self._profile_resolver = self._profile_resolver_factory()
         logger.info("Profile resolver initialized.")
 
+        self._services = ApplicationServices(state_provider=self)
+        logger.info("Service layer initialized.")
+
+        self._ipc_server = IPCServer(services=self._services)
+        self._ipc_server.start()
+        logger.info("IPC server started.")
+
         logger.info("Initialization complete.")
 
     def _shutdown(self) -> None:
@@ -100,6 +132,9 @@ class Daemon:
             return
         self._state = DaemonState.SHUTTING_DOWN
         logger.info("Shutting down MouseFlow daemon...")
+        if self._ipc_server is not None:
+            self._ipc_server.stop()
+            logger.info("IPC server stopped.")
         logger.info("Shutdown complete.")
         self._state = DaemonState.STOPPED
 

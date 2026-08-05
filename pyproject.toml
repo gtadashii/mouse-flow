@@ -7,7 +7,7 @@ requires-python = ">=3.13"
 dependencies = ["evdev>=1.7.0", "i3ipc>=2.2.1", "pyyaml>=6.0", "pynput>=1.7.6"]
 
 [project.scripts]
-mouseflow = "mouseflow.__main__:main"
+mouseflow = "mouseflow.cli:main"
 
 [project.optional-dependencies]
 dev = [

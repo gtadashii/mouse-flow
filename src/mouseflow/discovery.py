@@ -50,6 +50,14 @@ def find_supported_device() -> SupportedDevice | None:
     return None
 
 
+def find_all_supported_devices() -> list[SupportedDevice]:
+    devices: list[SupportedDevice] = []
+    for device in enumerate_devices():
+        if is_supported_device(device):
+            devices.append(SupportedDevice(name=device.name, path=device.path))
+    return devices
+
+
 def format_found(device: SupportedDevice) -> str:
     return f"Found device:\n\n{device.name}"
 

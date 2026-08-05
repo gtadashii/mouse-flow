@@ -156,3 +156,30 @@ class ExecutionResult:
 
 class ActionExecutor(Protocol):
     def execute(self, action: Action) -> ExecutionResult: ...
+
+
+@dataclass(frozen=True)
+class DeviceInfo:
+    path: str
+    name: str
+    is_active: bool
+
+
+@dataclass(frozen=True)
+class ApplicationStatus:
+    is_running: bool
+    device_connected: bool
+    configuration_loaded: bool
+    active_profile: str | None = None
+
+
+@dataclass(frozen=True)
+class ValidationResult:
+    is_valid: bool
+    errors: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class ReloadResult:
+    success: bool
+    message: str | None = None

@@ -5,14 +5,18 @@ from mouseflow.domain import (
     Action,
     ActionType,
     Application,
+    ApplicationStatus,
     Configuration,
+    DeviceInfo,
     DispatchContext,
     EventType,
     InputIdentifier,
     MouseButton,
     MouseEvent,
     Profile,
+    ReloadResult,
     UserInput,
+    ValidationResult,
     WheelAxis,
     Window,
     WindowInfo,
@@ -359,3 +363,152 @@ class TestConfiguration:
         assert config.get_global_profile() == global_profile
         assert config.get_profile("firefox") == firefox_profile
         assert config.get_profile("vscode") == vscode_profile
+
+
+class TestDeviceInfo:
+    def test_creation(self) -> None:
+        device = DeviceInfo(path="/dev/input/event0", name="Test Mouse", is_active=True)
+        assert device.path == "/dev/input/event0"
+        assert device.name == "Test Mouse"
+        assert device.is_active is True
+
+    def test_equality(self) -> None:
+        device1 = DeviceInfo(
+            path="/dev/input/event0", name="Test Mouse", is_active=True
+        )
+        device2 = DeviceInfo(
+            path="/dev/input/event0", name="Test Mouse", is_active=True
+        )
+        assert device1 == device2
+
+    def test_inequality(self) -> None:
+        device1 = DeviceInfo(
+            path="/dev/input/event0", name="Test Mouse", is_active=True
+        )
+        device2 = DeviceInfo(
+            path="/dev/input/event1", name="Test Mouse", is_active=True
+        )
+        assert device1 != device2
+
+    def test_immutability(self) -> None:
+        device = DeviceInfo(path="/dev/input/event0", name="Test Mouse", is_active=True)
+        with pytest.raises(AttributeError):
+            device.name = "Other Mouse"  # type: ignore[misc]
+
+
+class TestApplicationStatus:
+    def test_creation_full(self) -> None:
+        status = ApplicationStatus(
+            is_running=True,
+            device_connected=True,
+            configuration_loaded=True,
+            active_profile="firefox",
+        )
+        assert status.is_running is True
+        assert status.device_connected is True
+        assert status.configuration_loaded is True
+        assert status.active_profile == "firefox"
+
+    def test_creation_defaults(self) -> None:
+        status = ApplicationStatus(
+            is_running=True,
+            device_connected=False,
+            configuration_loaded=False,
+        )
+        assert status.active_profile is None
+
+    def test_equality(self) -> None:
+        status1 = ApplicationStatus(
+            is_running=True,
+            device_connected=True,
+            configuration_loaded=True,
+            active_profile="firefox",
+        )
+        status2 = ApplicationStatus(
+            is_running=True,
+            device_connected=True,
+            configuration_loaded=True,
+            active_profile="firefox",
+        )
+        assert status1 == status2
+
+    def test_inequality(self) -> None:
+        status1 = ApplicationStatus(
+            is_running=True,
+            device_connected=True,
+            configuration_loaded=True,
+        )
+        status2 = ApplicationStatus(
+            is_running=False,
+            device_connected=True,
+            configuration_loaded=True,
+        )
+        assert status1 != status2
+
+    def test_immutability(self) -> None:
+        status = ApplicationStatus(
+            is_running=True,
+            device_connected=True,
+            configuration_loaded=True,
+        )
+        with pytest.raises(AttributeError):
+            status.is_running = False  # type: ignore[misc]
+
+
+class TestValidationResult:
+    def test_valid_result(self) -> None:
+        result = ValidationResult(is_valid=True)
+        assert result.is_valid is True
+        assert result.errors == ()
+
+    def test_invalid_result(self) -> None:
+        result = ValidationResult(is_valid=False, errors=("Error 1", "Error 2"))
+        assert result.is_valid is False
+        assert result.errors == ("Error 1", "Error 2")
+
+    def test_equality(self) -> None:
+        result1 = ValidationResult(is_valid=True)
+        result2 = ValidationResult(is_valid=True)
+        assert result1 == result2
+
+    def test_inequality(self) -> None:
+        result1 = ValidationResult(is_valid=True)
+        result2 = ValidationResult(is_valid=False, errors=("Error",))
+        assert result1 != result2
+
+    def test_immutability(self) -> None:
+        result = ValidationResult(is_valid=True)
+        with pytest.raises(AttributeError):
+            result.is_valid = False  # type: ignore[misc]
+
+
+class TestReloadResult:
+    def test_success_result(self) -> None:
+        result = ReloadResult(success=True)
+        assert result.success is True
+        assert result.message is None
+
+    def test_success_with_message(self) -> None:
+        result = ReloadResult(success=True, message="Configuration reloaded")
+        assert result.success is True
+        assert result.message == "Configuration reloaded"
+
+    def test_failure_result(self) -> None:
+        result = ReloadResult(success=False, message="Invalid configuration")
+        assert result.success is False
+        assert result.message == "Invalid configuration"
+
+    def test_equality(self) -> None:
+        result1 = ReloadResult(success=True)
+        result2 = ReloadResult(success=True)
+        assert result1 == result2
+
+    def test_inequality(self) -> None:
+        result1 = ReloadResult(success=True)
+        result2 = ReloadResult(success=False, message="Error")
+        assert result1 != result2
+
+    def test_immutability(self) -> None:
+        result = ReloadResult(success=True)
+        with pytest.raises(AttributeError):
+            result.success = False  # type: ignore[misc]
