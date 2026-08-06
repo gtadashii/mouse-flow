@@ -279,23 +279,20 @@ systemctl --user enable mouseflow
 
 ---
 
-## Phase 12 — Command Line Interface
+## Phase 12 — Command Line Interface ✓ COMPLETE
 
 ### Goal
 
 Provide tools for diagnostics and maintenance.
 
-Examples:
+### Implementation
 
-```bash
-mouseflow doctor
-
-mouseflow reload
-
-mouseflow devices
-
-mouseflow inspect
-```
+- Single entry point with subcommands (`mouseflow start`, `mouseflow status`, etc.)
+- Service Layer exposing application capabilities as public API
+- IPC via Unix sockets for CLI-daemon communication
+- Commands: `start`, `status`, `devices`, `config show`, `config validate`, `config reload`
+- Thread-safe configuration reload at runtime
+- Comprehensive test coverage (unit + integration)
 
 ---
 

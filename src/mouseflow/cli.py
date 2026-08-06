@@ -197,29 +197,9 @@ def _cmd_config_validate(args: argparse.Namespace) -> int:
         client = IPCClient()
         response = client.send_command("config_validate", cmd_args)
     except IPCConnectionError:
-        from pathlib import Path
-
-        from mouseflow.parser import ConfigurationError, parse_config
-
-        if path:
-            config_path = Path(path)
-        else:
-            from mouseflow.parser import DEFAULT_CONFIG_PATH
-
-            config_path = DEFAULT_CONFIG_PATH
-
-        if not config_path.exists():
-            print(f"Configuration file not found: {config_path}", file=sys.stderr)
-            return 1
-
-        try:
-            parse_config(config_path)
-            print("Configuration is valid")
-            return 0
-        except ConfigurationError as e:
-            print("Configuration is invalid", file=sys.stderr)
-            print(f"  {e}", file=sys.stderr)
-            return 1
+        print("Error: MouseFlow daemon is not running", file=sys.stderr)
+        print("Start it with: mouseflow start", file=sys.stderr)
+        return 1
 
     if response["status"] != "ok":
         print(f"Error: {response['message']}", file=sys.stderr)
