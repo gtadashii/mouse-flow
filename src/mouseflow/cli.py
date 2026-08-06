@@ -7,7 +7,7 @@ from typing import Any
 from mouseflow.daemon import Daemon, DaemonError, DaemonInitializationError
 from mouseflow.ipc import IPCClient, IPCConnectionError
 
-VERSION = "0.1.0"
+VERSION = "1.0.1"
 
 
 def main() -> int:

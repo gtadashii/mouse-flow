@@ -1,6 +1,6 @@
 [project]
 name = "mouseflow"
-version = "1.0.0"
+version = "1.0.1"
 description = "Per-application mouse actions for Wayland compositors"
 readme = "README.md"
 license = "MIT"

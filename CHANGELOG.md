@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-08-06
+
+### Fixed
+
+- Fixed hardcoded version in CLI to match package version
+
 ## [1.0.0] - 2026-08-06
 
 ### Added
@@ -39,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Sway IPC integration for window identification
 - Systemd user service support
 
-[Unreleased]: https://github.com/gtadashii/mouse-flow/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/gtadashii/mouse-flow/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/gtadashii/mouse-flow/releases/tag/v1.0.1
 [1.0.0]: https://github.com/gtadashii/mouse-flow/releases/tag/v1.0.0
 [0.1.0]: https://github.com/gtadashii/mouse-flow/releases/tag/v0.1.0
