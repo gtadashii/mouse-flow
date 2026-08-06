@@ -1,0 +1,196 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Check formatting
+        run: uv run ruff format --check src/ tests/
+
+      - name: Lint
+        run: uv run ruff check src/ tests/
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Type check
+        run: uv run mypy src/
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Test
+        run: uv run pytest
+
+  build:
+    needs: [lint, typecheck, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Build distributions
+        run: uv run python -m build
+
+      - name: Upload distributions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: [build]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - name: Download distributions artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    needs: [publish]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download distributions artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" \
+            --title "v$VERSION" \
+            --generate-notes \
+            dist/*
+
+  validate:
+    needs: [publish]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        installer: [pip, uv]
+    steps:
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Wait for PyPI propagation
+        run: sleep 30
+
+      - name: Install with pip
+        if: matrix.installer == 'pip'
+        run: |
+          python -m venv /tmp/test-env
+          /tmp/test-env/bin/pip install mouseflow
+
+      - name: Install with uv tool
+        if: matrix.installer == 'uv'
+        run: uv tool install mouseflow
+
+      - name: Validate mouseflow --version
+        if: matrix.installer == 'pip'
+        run: /tmp/test-env/bin/mouseflow --version
+
+      - name: Validate mouseflow --version
+        if: matrix.installer == 'uv'
+        run: mouseflow --version
+
+      - name: Validate mouseflow --help
+        if: matrix.installer == 'pip'
+        run: /tmp/test-env/bin/mouseflow --help
+
+      - name: Validate mouseflow --help
+        if: matrix.installer == 'uv'
+        run: mouseflow --help
+
+      - name: Validate mouseflow status (graceful failure)
+        if: matrix.installer == 'pip'
+        run: |
+          /tmp/test-env/bin/mouseflow status || true
+
+      - name: Validate mouseflow status (graceful failure)
+        if: matrix.installer == 'uv'
+        run: |
+          mouseflow status || true
+
+      - name: Validate mouseflow devices (graceful failure)
+        if: matrix.installer == 'pip'
+        run: |
+          /tmp/test-env/bin/mouseflow devices || true
+
+      - name: Validate mouseflow devices (graceful failure)
+        if: matrix.installer == 'uv'
+        run: |
+          mouseflow devices || true

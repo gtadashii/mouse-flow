@@ -3,8 +3,26 @@ name = "mouseflow"
 version = "0.1.0"
 description = "Per-application mouse actions for Wayland compositors"
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.13"
+authors = [{ name = "MouseFlow Contributors" }]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Desktop Environment",
+    "Topic :: Utilities",
+]
 dependencies = ["evdev>=1.7.0", "i3ipc>=2.2.1", "pyyaml>=6.0", "pynput>=1.7.6"]
+
+[project.urls]
+Homepage = "https://github.com/gtadashii/mouse-flow"
+Repository = "https://github.com/gtadashii/mouse-flow"
+Documentation = "https://github.com/gtadashii/mouse-flow/tree/main/docs"
+Issues = "https://github.com/gtadashii/mouse-flow/issues"
 
 [project.scripts]
 mouseflow = "mouseflow.cli:main"
@@ -15,6 +33,8 @@ dev = [
     "mypy>=1.14.0",
     "pytest>=8.3.0",
     "pre-commit>=4.0.0",
+    "build>=1.2.0",
+    "twine>=6.0.0",
 ]
 
 [build-system]
@@ -23,6 +43,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mouseflow"]
+
+[tool.hatch.build.targets.sdist]
+exclude = ["/tests", "/.github", "/.opencode", "/openspec", "/docs/adr", "/docs/prd"]
 
 [tool.ruff]
 target-version = "py313"
