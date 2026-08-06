@@ -153,7 +153,7 @@ jobs:
         if: matrix.installer == 'pip'
         run: |
           uv venv --python 3.13 /tmp/test-env
-          /tmp/test-env/bin/pip install mouseflow
+          uv pip install --python /tmp/test-env/bin/python mouseflow
 
       - name: Install with uv tool
         if: matrix.installer == 'uv'
